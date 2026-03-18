@@ -209,3 +209,10 @@ __marimo__/
 .claude/
 .pytest_cache
 .venv
+
+# Image files
+*.jpg
+*.jpeg
+*.png
+
+lab5/
