@@ -425,18 +425,12 @@ def main(argv=None) -> int:
             fps = len(frame_times) / sum(frame_times) if frame_times else 0.0
 
             # ----------------------------------------------------------
-            # Render overlay on the full frame
+            # Render overlay on the cap crop (square display)
             # ----------------------------------------------------------
             if last_cap_found and last_cap_result is not None:
-                # Draw detected cap circle using verdict colour
-                cx, cy = last_cap_result['centre']
-                r      = last_cap_result['r_true']
-                circle_colour = _RED if last_is_anomalous else _GREEN
-                cv2.circle(frame, (cx, cy), r, circle_colour, 3)
-                cv2.circle(frame, (cx, cy), 6, circle_colour, -1)
-
                 display = _draw_overlay(
-                    frame, last_distance, threshold_value, fps, last_is_anomalous,
+                    last_cap_result['crop'].copy(),
+                    last_distance, threshold_value, fps, last_is_anomalous,
                 )
             else:
                 display = _draw_no_cap_overlay(frame, fps)
