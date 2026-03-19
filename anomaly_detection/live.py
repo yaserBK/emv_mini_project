@@ -1,10 +1,18 @@
 """
 live.py — Real-time video anomaly detection.
 
-Opens a webcam or video file, scores each frame using the calibration model,
-and displays the result with a coloured overlay:
-  - GREEN border/label → GOOD (within normal distribution)
-  - RED border/label   → ANOMALOUS (Mahalanobis distance exceeds threshold)
+Opens a webcam or video file, detects and crops the bottle cap in each frame,
+scores the crop using the calibration model, and displays the result:
+  - GREEN border/circle/label → GOOD (within normal distribution)
+  - RED border/circle/label   → ANOMALOUS (Mahalanobis distance exceeds threshold)
+  - YELLOW border/label       → NO CAP detected in this frame
+
+Pipeline per frame
+------------------
+  1. Capture frame from video source.
+  2. Run cap detection (blob → Hough → radial rim → 256×256 masked crop).
+  3. Score the masked crop with the ResNet-18 / Mahalanobis detector.
+  4. Render verdict overlay on the full frame and display.
 
 Usage — webcam (default camera index 0)
 ----------------------------------------
@@ -41,6 +49,7 @@ import numpy as np
 import torch
 from PIL import Image
 
+from anomaly.cap_detection import process_image as detect_cap
 from anomaly.distribution import mahalanobis_distances
 from anomaly.features import build_feature_extractor, build_transform
 from anomaly.io import load_calibration
@@ -60,10 +69,11 @@ logger = logging.getLogger("live")
 _VALID_THRESHOLDS = {90, 95, 99}
 
 # Colours in BGR (OpenCV convention)
-_GREEN = (30, 210, 30)
-_RED   = (30, 30, 220)
-_WHITE = (255, 255, 255)
-_BLACK = (0,   0,   0)
+_GREEN  = (30, 210, 30)
+_RED    = (30, 30, 220)
+_YELLOW = (0, 210, 220)
+_WHITE  = (255, 255, 255)
+_BLACK  = (0,   0,   0)
 
 _BORDER_THICKNESS = 8
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -157,7 +167,7 @@ def score_frame(
     Score a single OpenCV BGR frame and return its Mahalanobis distance.
 
     Args:
-        frame:     HxWx3 uint8 BGR array from cv2.VideoCapture.
+        frame:     HxWx3 uint8 BGR array (e.g. the 256×256 masked cap crop).
         extractor: Frozen ResNet-18 feature extractor.
         transform: ImageNet preprocessing transform.
         mean:      Calibration distribution mean (512,).
@@ -255,6 +265,44 @@ def _draw_overlay(
     return frame
 
 
+def _draw_no_cap_overlay(frame: np.ndarray, fps: float) -> np.ndarray:
+    """
+    Draw a yellow border and 'NO CAP' banner when no cap is detected.
+
+    Args:
+        frame: HxWx3 BGR uint8 array, modified in-place.
+        fps:   Smoothed frames-per-second to display.
+
+    Returns:
+        The annotated frame (same object as *frame*).
+    """
+    h, w = frame.shape[:2]
+
+    cv2.rectangle(frame, (0, 0), (w - 1, h - 1), _YELLOW, _BORDER_THICKNESS)
+
+    banner_h = 84
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (0, 0), (w, banner_h), _BLACK, cv2.FILLED)
+    cv2.addWeighted(overlay, 0.60, frame, 0.40, 0, frame)
+
+    verdict_scale = 1.7
+    verdict_thick = 3
+    (_, vh), _ = cv2.getTextSize("NO CAP", _FONT, verdict_scale, verdict_thick)
+    cv2.putText(
+        frame, "NO CAP",
+        (14, vh + 10),
+        _FONT, verdict_scale, _YELLOW, verdict_thick, cv2.LINE_AA,
+    )
+
+    cv2.putText(
+        frame, f"{fps:.1f} fps",
+        (14, banner_h - 12),
+        _FONT, 0.52, _WHITE, 1, cv2.LINE_AA,
+    )
+
+    return frame
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -331,9 +379,11 @@ def main(argv=None) -> int:
     # ------------------------------------------------------------------
     # Main loop
     # ------------------------------------------------------------------
-    frame_idx = 0
-    last_distance = 0.0
+    frame_idx         = 0
+    last_distance     = 0.0
     last_is_anomalous = False
+    last_cap_found    = False
+    last_cap_result   = None
 
     # Rolling FPS window
     frame_times: collections.deque = collections.deque(maxlen=_FPS_SMOOTHING)
@@ -346,23 +396,27 @@ def main(argv=None) -> int:
                 logger.info("End of video stream — no more frames.")
                 break
 
-            # Centre-crop to 1024×1024
-            fh, fw = frame.shape[:2]
-            crop = 1024
-            y0 = max((fh - crop) // 2, 0)
-            x0 = max((fw - crop) // 2, 0)
-            frame = frame[y0:y0 + crop, x0:x0 + crop]
-
-            # Score every N-th frame; reuse previous verdict in between
+            # ----------------------------------------------------------
+            # Cap detection + scoring every N frames
+            # ----------------------------------------------------------
             if frame_idx % args.every == 0:
-                last_distance = score_frame(
-                    frame, extractor, transform, mean, inv_cov, device
-                )
-                last_is_anomalous = last_distance > threshold_value
-                logger.debug(
-                    "frame=%d  dist=%.4f  anomalous=%s",
-                    frame_idx, last_distance, last_is_anomalous,
-                )
+                cap_result = detect_cap(frame)
+                if cap_result['status'] == 'ok':
+                    last_distance = score_frame(
+                        cap_result['crop'], extractor, transform,
+                        mean, inv_cov, device,
+                    )
+                    last_is_anomalous = last_distance > threshold_value
+                    last_cap_found    = True
+                    last_cap_result   = cap_result
+                    logger.debug(
+                        "frame=%d  dist=%.4f  anomalous=%s",
+                        frame_idx, last_distance, last_is_anomalous,
+                    )
+                else:
+                    last_cap_found  = False
+                    last_cap_result = None
+                    logger.debug("frame=%d  no cap detected", frame_idx)
 
             # Smooth FPS
             t_now = time.perf_counter()
@@ -370,13 +424,22 @@ def main(argv=None) -> int:
             t_prev = t_now
             fps = len(frame_times) / sum(frame_times) if frame_times else 0.0
 
-            display = _draw_overlay(
-                frame,           # draw on the frame directly (already captured)
-                last_distance,
-                threshold_value,
-                fps,
-                last_is_anomalous,
-            )
+            # ----------------------------------------------------------
+            # Render overlay on the full frame
+            # ----------------------------------------------------------
+            if last_cap_found and last_cap_result is not None:
+                # Draw detected cap circle using verdict colour
+                cx, cy = last_cap_result['centre']
+                r      = last_cap_result['r_true']
+                circle_colour = _RED if last_is_anomalous else _GREEN
+                cv2.circle(frame, (cx, cy), r, circle_colour, 3)
+                cv2.circle(frame, (cx, cy), 6, circle_colour, -1)
+
+                display = _draw_overlay(
+                    frame, last_distance, threshold_value, fps, last_is_anomalous,
+                )
+            else:
+                display = _draw_no_cap_overlay(frame, fps)
 
             cv2.imshow(window_title, display)
 
