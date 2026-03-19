@@ -28,7 +28,7 @@ DETECT_SIZE   = 500     # px — downsample resolution for blob detection
 CROP_SIZE     = 256     # px — output crop resolution
 PADDING       = 0.08    # fraction of radius added as border around the rim
 
-BG_COLOUR     = (0, 0, 0)   # BGR — fill colour for masked-out areas
+BG_COLOUR     = (180, 180, 180)   # BGR — fill colour for masked-out areas (matches training data)
 
 # Blob detection
 MIN_CIRC      = 0.45    # minimum blob circularity to consider
