@@ -346,6 +346,13 @@ def main(argv=None) -> int:
                 logger.info("End of video stream — no more frames.")
                 break
 
+            # Centre-crop to 1024×1024
+            fh, fw = frame.shape[:2]
+            crop = 1024
+            y0 = max((fh - crop) // 2, 0)
+            x0 = max((fw - crop) // 2, 0)
+            frame = frame[y0:y0 + crop, x0:x0 + crop]
+
             # Score every N-th frame; reuse previous verdict in between
             if frame_idx % args.every == 0:
                 last_distance = score_frame(
