@@ -23,11 +23,11 @@ from anomaly.distribution import (
 # ---------------------------------------------------------------------------
 
 
-def _rng(seed: int = 0) -> np.random.Generator:
+def _rng(seed  = 0)  :
     return np.random.default_rng(seed)
 
 
-def _make_centred(rng: np.random.Generator, n: int, p: int) -> np.ndarray:
+def _make_centred(rng , n , p )  :
     """Return a centred (n, p) sample matrix."""
     X = rng.standard_normal((n, p))
     return X - X.mean(axis=0)

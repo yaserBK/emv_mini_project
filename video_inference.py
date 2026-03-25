@@ -37,9 +37,7 @@ import collections
 import logging
 import sys
 import time
-from pathlib import Path
 
-import numpy as np
 
 try:
     import cv2
@@ -74,7 +72,7 @@ _FONT              = cv2.FONT_HERSHEY_SIMPLEX
 _FPS_SMOOTHING     = 20
 
 
-def parse_args(argv=None) -> argparse.Namespace:
+def parse_args(argv=None)  :
     parser = argparse.ArgumentParser(
         prog="video_inference.py",
         description=(
@@ -112,7 +110,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _resolve_source(source_str: str):
+def _resolve_source(source_str ):
     try:
         return int(source_str)
     except ValueError:
@@ -123,12 +121,12 @@ def _resolve_source(source_str: str):
 
 
 def _draw_overlay(
-    frame: np.ndarray,
-    distance: float,
-    threshold: float,
-    fps: float,
-    is_anomalous: bool,
-) -> np.ndarray:
+    frame ,
+    distance ,
+    threshold ,
+    fps ,
+    is_anomalous ,
+)  :
     """Draw verdict border and stats banner onto *frame* (in-place)."""
     h, w   = frame.shape[:2]
     colour  = _RED if is_anomalous else _GREEN
@@ -156,7 +154,7 @@ def _draw_overlay(
     return frame
 
 
-def _draw_no_cap_overlay(frame: np.ndarray, fps: float) -> np.ndarray:
+def _draw_no_cap_overlay(frame , fps )  :
     """Draw a yellow 'NO CAP' banner onto *frame* (in-place)."""
     h, w = frame.shape[:2]
     cv2.rectangle(frame, (0, 0), (w - 1, h - 1), _YELLOW, _BORDER_THICKNESS)
@@ -179,7 +177,7 @@ def _draw_no_cap_overlay(frame: np.ndarray, fps: float) -> np.ndarray:
 # -- Main ----------------------------------------------------------------------
 
 
-def main(argv=None) -> int:
+def main(argv=None)  :
     args = parse_args(argv)
     logging.getLogger().setLevel(getattr(logging, args.log_level))
 
@@ -213,7 +211,7 @@ def main(argv=None) -> int:
 
     frame_idx         = 0
     last_result       = None
-    frame_times: collections.deque = collections.deque(maxlen=_FPS_SMOOTHING)
+    frame_times  = collections.deque(maxlen=_FPS_SMOOTHING)
     t_prev = time.perf_counter()
 
     try:

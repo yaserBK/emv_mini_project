@@ -21,9 +21,7 @@ Usage
 
 import logging
 from pathlib import Path
-from typing import Optional
 
-import numpy as np
 import torch
 from PIL import Image
 
@@ -51,8 +49,8 @@ class AnomalyDetector:
     def __init__(
         self,
         calibration_path,
-        threshold: int = 99,
-        device: str = 'cpu',
+        threshold  = 99,
+        device  = 'cpu',
     ):
         """
         Args:
@@ -103,11 +101,11 @@ class AnomalyDetector:
         )
 
     @property
-    def threshold_value(self) -> float:
+    def threshold_value(self)  :
         """Numeric Mahalanobis distance threshold for the chosen percentile."""
         return self._threshold
 
-    def score_crop(self, bgr_crop: np.ndarray) -> float:
+    def score_crop(self, bgr_crop )  :
         """
         Score a pre-cropped BGR image and return its Mahalanobis distance.
 
@@ -131,7 +129,7 @@ class AnomalyDetector:
         distances = mahalanobis_distances(feat, self._mean, self._inv_cov)
         return float(distances[0])
 
-    def score_image(self, bgr_frame: np.ndarray) -> dict:
+    def score_image(self, bgr_frame )  :
         """
         Detect the bottle cap in a raw BGR frame, crop it, and score it.
 

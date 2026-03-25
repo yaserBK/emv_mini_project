@@ -29,7 +29,6 @@ Metadata keys
 import logging
 import pickle
 from pathlib import Path
-from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ logger = logging.getLogger(__name__)
 _FORMAT_VERSION = 1
 
 
-def save_calibration(data: Dict[str, Any], path: Path) -> None:
+def save_calibration(data  , path )  :
     """
     Save a calibration model dictionary to a pickle file.
 
@@ -63,7 +62,7 @@ def save_calibration(data: Dict[str, Any], path: Path) -> None:
     logger.info("Calibration model saved (%d bytes)", path.stat().st_size)
 
 
-def load_calibration(path: Path) -> Dict[str, Any]:
+def load_calibration(path )   :
     """
     Load a calibration model from a pickle file.
 

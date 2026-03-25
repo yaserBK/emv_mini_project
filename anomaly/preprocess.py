@@ -24,7 +24,6 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -34,10 +33,10 @@ from anomaly.cap_detection import process_image as _detect_and_crop
 
 
 def process_image(
-    bgr: np.ndarray,
-    n_aug: int = 0,
-    rng: Optional[np.random.Generator] = None,
-) -> List[dict]:
+    bgr ,
+    n_aug  = 0,
+    rng  = None,
+)  :
     """
     Detect the bottle cap in *bgr*, produce a base crop, and optionally
     generate *n_aug* augmented variants.
@@ -90,11 +89,11 @@ def process_image(
 def process_dir(
     input_dir,
     output_dir,
-    n_aug: int = 12,
-    val_frac: float = 0.15,
-    seed: Optional[int] = None,
-    ext: str = 'jpg',
-) -> dict:
+    n_aug  = 12,
+    val_frac  = 0.15,
+    seed  = None,
+    ext  = 'jpg',
+)  :
     """
     Process all images in *input_dir*: detect caps, crop, augment, and split
     into train/val sets.
@@ -145,7 +144,7 @@ def process_dir(
     print(f"  Output        : {output_dir}")
     print(f"{'-' * 60}\n")
 
-    metadata: Dict = {
+    metadata  = {
         'seed':     seed,
         'n_aug':    n_aug,
         'val_frac': val_frac,
@@ -154,8 +153,8 @@ def process_dir(
         'val':      [],
     }
 
-    train_thumbs: List = []
-    val_thumbs:   List = []
+    train_thumbs  = []
+    val_thumbs    = []
     total = len(sources) * n_aug if n_aug > 0 else len(sources)
 
     for path in sources:
@@ -251,11 +250,11 @@ def process_dir(
 
 
 def make_contact_sheet(
-    images: list,
-    cols:    int = 10,
-    tile:    int = 128,
-    label_h: int = 18,
-) -> np.ndarray:
+    images ,
+    cols     = 10,
+    tile     = 128,
+    label_h  = 18,
+)  :
     """
     Build a contact-sheet image from a list of (label, bgr_image) pairs.
 

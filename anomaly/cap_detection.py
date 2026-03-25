@@ -20,7 +20,6 @@ Usage::
 
 import cv2
 import numpy as np
-from typing import Optional, Tuple
 
 # -- Configuration ----------------------------------------------------------
 
@@ -49,7 +48,7 @@ SAT_GREY_THRESHOLD = 25  # mean saturation below this -> use gradient rim finder
 
 # -- Stage 1a: normalise ----------------------------------------------------
 
-def normalise_fast(img: np.ndarray) -> np.ndarray:
+def normalise_fast(img )  :
     """
     Resize to DETECT_SIZE, apply conditional gamma lift for dark images,
     then CLAHE on the V channel.  Returns BGR at DETECT_SIZE x DETECT_SIZE.
@@ -72,9 +71,9 @@ def normalise_fast(img: np.ndarray) -> np.ndarray:
 
 
 def blob_detect_fast(
-    norm_small: np.ndarray,
-    img_area_small: int,
-) -> Optional[tuple]:
+    norm_small ,
+    img_area_small ,
+)  :
     """
     Find the best cap-candidate blob in a normalised 500 px image.
 
@@ -131,7 +130,7 @@ def blob_detect_fast(
 # -- Stage 1b fallback: global Hough ---------------------------------------
 
 
-def hough_global(norm_small: np.ndarray, area_s: int) -> Optional[tuple]:
+def hough_global(norm_small , area_s )  :
     """
     Global HoughCircles on grayscale -- fallback for low-saturation images where
     colour-based blob detection finds nothing (e.g. silver/metallic caps on
@@ -173,8 +172,8 @@ def hough_global(norm_small: np.ndarray, area_s: int) -> Optional[tuple]:
 
 
 def find_cap(
-    img: np.ndarray,
-) -> Optional[Tuple[Tuple[float, float], Tuple[float, float], float]]:
+    img ,
+)      :
     """
     Detect the bottle cap and return its ellipse in full-image coordinates.
 
@@ -238,11 +237,11 @@ def find_cap(
 
 
 def find_rim_radius(
-    img: np.ndarray,
-    cx: float,
-    cy: float,
-    r_approx: int,
-) -> int:
+    img ,
+    cx ,
+    cy ,
+    r_approx ,
+)  :
     """
     Measure the true outer cap rim radius via radial saturation sampling.
 
@@ -297,11 +296,11 @@ def find_rim_radius(
 
 
 def rim_radius_gradient(
-    img: np.ndarray,
-    cx: float,
-    cy: float,
-    r_approx: int,
-) -> int:
+    img ,
+    cx ,
+    cy ,
+    r_approx ,
+)  :
     """
     Gradient-magnitude rim finder for low-saturation (silver/metallic) caps.
 
@@ -352,11 +351,11 @@ def rim_radius_gradient(
 
 
 def make_masked_crop(
-    img: np.ndarray,
-    cx: float,
-    cy: float,
-    r_true: int,
-) -> Tuple[np.ndarray, np.ndarray]:
+    img ,
+    cx ,
+    cy ,
+    r_true ,
+)   :
     """
     Produce a CROP_SIZE x CROP_SIZE BGR crop masked to the cap circle.
 
@@ -396,7 +395,7 @@ def make_masked_crop(
 # -- Public API -------------------------------------------------------------
 
 
-def process_image(img: np.ndarray) -> dict:
+def process_image(img )  :
     """
     Full pipeline: BGR frame -> masked cap crop.
 

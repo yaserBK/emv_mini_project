@@ -12,8 +12,6 @@ All feature extraction runs under ``torch.no_grad()`` with the model in
 """
 
 import logging
-from pathlib import Path
-from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -24,17 +22,17 @@ from torchvision import models, transforms
 logger = logging.getLogger(__name__)
 
 # Standard ImageNet normalisation constants
-IMAGENET_MEAN: List[float] = [0.485, 0.456, 0.406]
-IMAGENET_STD: List[float] = [0.229, 0.224, 0.225]
+IMAGENET_MEAN  = [0.485, 0.456, 0.406]
+IMAGENET_STD  = [0.229, 0.224, 0.225]
 
 # File extensions treated as images (searched case-insensitively)
-SUPPORTED_EXTENSIONS: Tuple[str, ...] = (".jpg", ".jpeg", ".png", ".bmp")
+SUPPORTED_EXTENSIONS   = (".jpg", ".jpeg", ".png", ".bmp")
 
 # Dimensionality of the ResNet-18 global-average-pool output
-FEATURE_DIM: int = 512
+FEATURE_DIM  = 512
 
 
-def build_transform() -> transforms.Compose:
+def build_transform()  :
     """
     Build the standard ImageNet preprocessing transform pipeline.
 
@@ -56,7 +54,7 @@ def build_transform() -> transforms.Compose:
     )
 
 
-def build_feature_extractor(device: torch.device) -> nn.Module:
+def build_feature_extractor(device )  :
     """
     Build a frozen ResNet-18 feature extractor.
 
@@ -96,8 +94,8 @@ def build_feature_extractor(device: torch.device) -> nn.Module:
 
 
 def load_image(
-    path: Path, transform: transforms.Compose
-) -> Tuple[Optional[torch.Tensor], bool]:
+    path , transform 
+)   :
     """
     Load and preprocess a single image file.
 
@@ -123,7 +121,7 @@ def load_image(
         return None, False
 
 
-def find_images(directory: Path) -> List[Path]:
+def find_images(directory )  :
     """
     Recursively discover all supported images under *directory*.
 
@@ -143,7 +141,7 @@ def find_images(directory: Path) -> List[Path]:
     if not directory.is_dir():
         raise ValueError(f"Not a directory: {directory}")
 
-    paths: List[Path] = []
+    paths  = []
     for ext in SUPPORTED_EXTENSIONS:
         paths.extend(directory.rglob(f"*{ext}"))
         paths.extend(directory.rglob(f"*{ext.upper()}"))
@@ -154,12 +152,12 @@ def find_images(directory: Path) -> List[Path]:
 
 
 def extract_features(
-    image_paths: List[Path],
-    extractor: nn.Module,
-    transform: transforms.Compose,
-    device: torch.device,
-    batch_size: int = 16,
-) -> Tuple[np.ndarray, List[Path]]:
+    image_paths ,
+    extractor ,
+    transform ,
+    device ,
+    batch_size  = 16,
+)   :
     """
     Extract 512-dimensional feature vectors from a list of image files.
 
@@ -183,8 +181,8 @@ def extract_features(
           images that were successfully loaded and processed.
     """
     # Pre-load all tensors, collecting only successful loads
-    tensors: List[torch.Tensor] = []
-    tensor_paths: List[Path] = []
+    tensors  = []
+    tensor_paths  = []
 
     for path in image_paths:
         tensor, ok = load_image(path, transform)
@@ -209,7 +207,7 @@ def extract_features(
         n_batches,
     )
 
-    all_features: List[np.ndarray] = []
+    all_features  = []
     with torch.no_grad():
         for batch_idx in range(0, n_loaded, batch_size):
             batch_tensors = tensors[batch_idx : batch_idx + batch_size]

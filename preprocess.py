@@ -47,7 +47,7 @@ import cv2
 from anomaly.preprocess import process_image, process_dir
 
 
-def parse_args(argv=None) -> argparse.Namespace:
+def parse_args(argv=None)  :
     parser = argparse.ArgumentParser(
         prog="preprocess.py",
         description=(
@@ -84,7 +84,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv=None) -> int:
+def main(argv=None)  :
     args = parse_args(argv)
     out_dir = Path(args.out_dir)
 

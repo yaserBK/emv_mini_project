@@ -17,18 +17,17 @@ Augmentation distributions
   blur         Bernoulli   p=0.25       -> slight Gaussian blur (kernel 3 or 5)
 """
 
-from typing import Tuple
 
 import cv2
 import numpy as np
 
-BG_COLOUR: Tuple[int, int, int] = (0, 0, 0)
+BG_COLOUR    = (0, 0, 0)
 
 
 class AugParams:
     """Draws and stores one complete set of random augmentation parameters."""
 
-    def __init__(self, rng: np.random.Generator):
+    def __init__(self, rng ):
         # Gamma: log-normal sigma=0.30 -> ~[0.55, 1.82], hard-clipped to [0.4, 2.5]
         self.gamma = float(np.clip(np.exp(rng.normal(0, 0.30)), 0.40, 2.50))
 
@@ -52,7 +51,7 @@ class AugParams:
         self.blur = rng.random() < 0.25
         self.blur_k = int(rng.choice([3, 5]))
 
-    def describe(self) -> dict:
+    def describe(self)  :
         return {
             "gamma":      round(self.gamma, 3),
             "sat_scale":  round(self.sat_scale, 3),
@@ -66,7 +65,7 @@ class AugParams:
         }
 
 
-def apply_colour(img: np.ndarray, p: AugParams) -> np.ndarray:
+def apply_colour(img , p )  :
     """Apply gamma, saturation scale, and brightness shift in HSV space."""
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
 
@@ -83,10 +82,10 @@ def apply_colour(img: np.ndarray, p: AugParams) -> np.ndarray:
 
 
 def apply_geometry(
-    img: np.ndarray,
-    p: AugParams,
-    bg: Tuple[int, int, int] = BG_COLOUR,
-) -> np.ndarray:
+    img ,
+    p ,
+    bg    = BG_COLOUR,
+)  :
     """Apply rotation then perspective skew, keeping the cap inside the frame."""
     h, w = img.shape[:2]
     cx, cy = w // 2, h // 2
@@ -124,7 +123,7 @@ def apply_geometry(
     return img
 
 
-def apply_noise(img: np.ndarray, p: AugParams) -> np.ndarray:
+def apply_noise(img , p )  :
     """Add Gaussian noise; no-op when std is negligible."""
     if p.noise_std < 0.5:
         return img
@@ -132,7 +131,7 @@ def apply_noise(img: np.ndarray, p: AugParams) -> np.ndarray:
     return np.clip(img.astype(np.int16) + noise, 0, 255).astype(np.uint8)
 
 
-def apply_blur(img: np.ndarray, p: AugParams) -> np.ndarray:
+def apply_blur(img , p )  :
     """Apply a slight Gaussian blur if selected."""
     if not p.blur:
         return img
@@ -140,7 +139,7 @@ def apply_blur(img: np.ndarray, p: AugParams) -> np.ndarray:
     return cv2.GaussianBlur(img, (k, k), 0)
 
 
-def augment_crop(crop: np.ndarray, p: AugParams) -> np.ndarray:
+def augment_crop(crop , p )  :
     """Apply the full augmentation chain (colour -> geometry -> noise -> blur)."""
     aug = apply_colour(crop, p)
     aug = apply_geometry(aug, p, bg=BG_COLOUR)

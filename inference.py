@@ -44,7 +44,7 @@ _VALID_THRESHOLDS = {90, 95, 99}
 _COL_WIDTH = 55
 
 
-def parse_args(argv=None) -> argparse.Namespace:
+def parse_args(argv=None)  :
     parser = argparse.ArgumentParser(
         prog="inference.py",
         description=(
@@ -79,18 +79,18 @@ def parse_args(argv=None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _print_header() -> None:
+def _print_header()  :
     print(f"  {'FILE':<{_COL_WIDTH}}  {'DISTANCE':>10}  {'THRESHOLD':>10}  VERDICT")
     print(f"  {'-' * _COL_WIDTH}  {'-' * 10}  {'-' * 10}  {'-' * 9}")
 
 
-def _print_row(name: str, distance: float, threshold: float) -> None:
+def _print_row(name , distance , threshold )  :
     verdict = "ANOMALOUS" if distance > threshold else "GOOD     "
     display = name if len(name) <= _COL_WIDTH else "..." + name[-(_COL_WIDTH - 1):]
     print(f"  {display:<{_COL_WIDTH}}  {distance:>10.4f}  {threshold:>10.4f}  {verdict}")
 
 
-def main(argv=None) -> int:
+def main(argv=None)  :
     args = parse_args(argv)
     logging.getLogger().setLevel(getattr(logging, args.log_level))
 

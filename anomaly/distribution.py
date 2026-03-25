@@ -16,7 +16,6 @@ All computations are purely NumPy; no external ML libraries are required.
 """
 
 import logging
-from typing import Dict, Tuple
 
 import numpy as np
 
@@ -28,7 +27,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def ledoit_wolf_shrinkage(X: np.ndarray) -> Tuple[np.ndarray, float]:
+def ledoit_wolf_shrinkage(X )   :
     """
     Compute the Ledoit-Wolf analytical shrinkage estimator of the covariance matrix.
 
@@ -162,10 +161,10 @@ def ledoit_wolf_shrinkage(X: np.ndarray) -> Tuple[np.ndarray, float]:
 
 
 def mahalanobis_distance(
-    x: np.ndarray,
-    mean: np.ndarray,
-    inv_cov: np.ndarray,
-) -> float:
+    x ,
+    mean ,
+    inv_cov ,
+)  :
     """
     Compute the Mahalanobis distance from a single vector to a Gaussian centre.
 
@@ -213,10 +212,10 @@ def mahalanobis_distance(
 
 
 def mahalanobis_distances(
-    X: np.ndarray,
-    mean: np.ndarray,
-    inv_cov: np.ndarray,
-) -> np.ndarray:
+    X ,
+    mean ,
+    inv_cov ,
+)  :
     """
     Compute Mahalanobis distances for a batch of feature vectors.
 
@@ -248,7 +247,7 @@ def mahalanobis_distances(
 # ---------------------------------------------------------------------------
 
 
-def fit_distribution(features: np.ndarray) -> Dict:
+def fit_distribution(features )  :
     """
     Fit a multivariate Gaussian model to a set of "good" feature vectors.
 

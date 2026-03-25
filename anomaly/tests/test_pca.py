@@ -13,7 +13,7 @@ import numpy as np
 from anomaly.pca import PCA
 
 
-def _rng(seed: int = 0) -> np.random.Generator:
+def _rng(seed  = 0)  :
     return np.random.default_rng(seed)
 
 
@@ -121,7 +121,7 @@ class TestPCAComponents(unittest.TestCase):
         """
         rng = _rng(13)
         n, d_signal, d_noise = 300, 3, 50
-        d = d_signal + d_noise
+        d_signal + d_noise
         signal = rng.standard_normal((n, d_signal)) * 10.0
         noise = rng.standard_normal((n, d_noise)) * 0.01
         X = np.concatenate([signal, noise], axis=1)

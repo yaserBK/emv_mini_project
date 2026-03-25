@@ -97,7 +97,6 @@ otherwise.
 """
 
 import logging
-from typing import Optional, Tuple
 
 import numpy as np
 
@@ -129,9 +128,9 @@ class PCA:
 
     def __init__(
         self,
-        n_components: Optional[int] = None,
-        variance_threshold: Optional[float] = 0.95,
-    ) -> None:
+        n_components  = None,
+        variance_threshold  = 0.95,
+    )  :
         """
         Initialise PCA.
 
@@ -153,16 +152,16 @@ class PCA:
         self.variance_threshold = variance_threshold
 
         # Fitted attributes (set by fit())
-        self.mean_: Optional[np.ndarray] = None
-        self.components_: Optional[np.ndarray] = None
-        self.eigenvalues_: Optional[np.ndarray] = None
-        self.n_components_: Optional[int] = None
+        self.mean_  = None
+        self.components_  = None
+        self.eigenvalues_  = None
+        self.n_components_  = None
 
     # ------------------------------------------------------------------
     # Core API
     # ------------------------------------------------------------------
 
-    def fit(self, X: np.ndarray) -> "PCA":
+    def fit(self, X )  :
         """
         Fit PCA to the training data X.
 
@@ -246,7 +245,7 @@ class PCA:
 
         return self
 
-    def transform(self, X: np.ndarray) -> np.ndarray:
+    def transform(self, X )  :
         """
         Project data onto the retained principal components.
 
@@ -269,7 +268,7 @@ class PCA:
         X = np.asarray(X, dtype=np.float64)
         return (X - self.mean_) @ self.components_
 
-    def fit_transform(self, X: np.ndarray) -> np.ndarray:
+    def fit_transform(self, X )  :
         """
         Fit PCA to X and return the projected data.
 
@@ -286,7 +285,7 @@ class PCA:
         X = np.asarray(X, dtype=np.float64)
         return (X - self.mean_) @ self.components_
 
-    def inverse_transform(self, X_reduced: np.ndarray) -> np.ndarray:
+    def inverse_transform(self, X_reduced )  :
         """
         Map reduced-space coordinates back to the original feature space.
 
@@ -307,7 +306,7 @@ class PCA:
         X_reduced = np.asarray(X_reduced, dtype=np.float64)
         return X_reduced @ self.components_.T + self.mean_
 
-    def explained_variance_ratio(self) -> Tuple[np.ndarray, np.ndarray]:
+    def explained_variance_ratio(self)   :
         """
         Return per-component and cumulative explained variance ratios.
 
@@ -341,7 +340,7 @@ class PCA:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _check_fitted(self) -> None:
+    def _check_fitted(self)  :
         """Raise RuntimeError if fit() has not been called."""
         if self.mean_ is None:
             raise RuntimeError(

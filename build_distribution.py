@@ -60,7 +60,7 @@ logging.basicConfig(
 logger = logging.getLogger("build_distribution")
 
 
-def parse_args(argv=None) -> argparse.Namespace:
+def parse_args(argv=None)  :
     parser = argparse.ArgumentParser(
         prog="build_distribution.py",
         description=(
@@ -108,7 +108,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv=None) -> int:
+def main(argv=None)  :
     args = parse_args(argv)
     logging.getLogger().setLevel(getattr(logging, args.log_level))
 
