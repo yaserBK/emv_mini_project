@@ -23,8 +23,4 @@ build/
 .DS_Store
 
 # Project-specific
-*.pkl
 .claude/
-
-# Datasets
-dataset/

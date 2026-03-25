@@ -208,7 +208,7 @@ def main(argv=None) -> int:
     print(f"  Device           : {device}")
     print()
     if pca_data["pca_enabled"]:
-        print(f"  PCA              : enabled")
+        print("  PCA              : enabled")
         print(f"  PCA dims         : {FEATURE_DIM} → {pca_data['pca_n_components']}")
         print(f"  PCA variance     : {pca_data['pca_variance_explained'] * 100:.1f}% retained")
     else:
