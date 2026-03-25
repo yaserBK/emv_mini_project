@@ -210,3 +210,4 @@ __marimo__/
 .pytest_cache
 .venv
 
+anomaly_detection/train_images/
