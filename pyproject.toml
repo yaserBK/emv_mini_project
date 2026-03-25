@@ -3,14 +3,23 @@ name = "emv-mini-project"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.8"
 dependencies = [
-    "numpy>=2.4.3",
+    "numpy>=1.21.0",
     "pillow>2.1.1",
     "pytest>=9.0.2",
-    "torch>=2.10.0",
-    "torchvision>=0.25.0",
-    "opencv-python-headless",
+    "torch>=1.10.0",
+    "torchvision>=0.12.0",
     "matplotlib",
-    "opencv-python>=4.13.0.92",
+    "opencv-python>=4.5.0",
+]
+
+[[tool.uv.index]]
+name = "nvidia-jetson"
+url = "https://developer.download.nvidia.com/compute/redist/jp/v461/pytorch/"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "nvidia-jetson", marker = "platform_machine == 'aarch64'" },
 ]

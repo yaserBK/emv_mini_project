@@ -78,7 +78,7 @@ def build_feature_extractor(device: torch.device) -> nn.Module:
         A frozen ``nn.Sequential`` mapping ``(B, 3, 224, 224) → (B, 512, 1, 1)``.
     """
     logger.info("Loading pretrained ResNet-18 weights (ImageNet-1K)")
-    backbone = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    backbone = models.resnet18(pretrained=True)  # pretrained=True: compat with torchvision 0.12.x (Jetson JetPack 4.6)
 
     # Drop the final FC layer; keep everything through avgpool
     extractor = nn.Sequential(*list(backbone.children())[:-1])
