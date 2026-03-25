@@ -58,7 +58,7 @@ def save_calibration(data  , path )  :
     path = Path(path)
     logger.info("Saving calibration model to '%s' ...", path)
     with open(path, "wb") as fh:
-        pickle.dump(payload, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(payload, fh, protocol=4)  # protocol 4 = max supported by Python 3.6
     logger.info("Calibration model saved (%d bytes)", path.stat().st_size)
 
 
