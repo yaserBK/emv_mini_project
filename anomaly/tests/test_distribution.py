@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Unit tests for anomaly.distribution — Ledoit-Wolf shrinkage and Mahalanobis distance.
 

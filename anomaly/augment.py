@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 augment.py — Image augmentation for bottle cap training data.
 

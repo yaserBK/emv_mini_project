@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Serialisation and deserialisation of calibration models.
 

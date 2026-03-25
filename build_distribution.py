@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 build_distribution.py — Build an anomaly detection distribution from known-good crops.
 

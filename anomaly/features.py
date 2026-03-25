@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Feature extraction module using a frozen ResNet-18 backbone.
 

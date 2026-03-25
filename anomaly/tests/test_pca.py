@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Unit tests for anomaly.pca — PCA dimensionality reduction.
 

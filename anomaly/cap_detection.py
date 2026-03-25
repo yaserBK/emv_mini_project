@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """cap_detection.py — Bottle cap detection and masked crop extraction.
 
 Cascaded Detect-Localise-Inspect (DLI) pipeline:

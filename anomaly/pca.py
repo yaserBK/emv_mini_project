@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Principal Component Analysis (PCA) for feature-space dimensionality reduction.
 

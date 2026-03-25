@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 detector.py — AnomalyDetector: load a calibration model and score images.
 

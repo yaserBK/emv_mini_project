@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 anomaly — Bottle-cap anomaly detection package.
 

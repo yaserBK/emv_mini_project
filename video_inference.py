@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 video_inference.py — Real-time anomaly detection on a webcam or video file.
 

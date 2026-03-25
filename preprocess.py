@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 preprocess.py — Detect, crop, and augment bottle cap images.
 

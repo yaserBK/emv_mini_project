@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 preprocess.py — Bottle cap detection, cropping, and augmentation pipeline.
 

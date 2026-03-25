@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Multivariate Gaussian distribution fitting and Mahalanobis anomaly scoring.
 
