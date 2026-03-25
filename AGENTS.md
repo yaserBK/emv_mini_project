@@ -1,46 +1,75 @@
 # AGENTS.md
 
 ## Scope and System Boundary
-- This repository currently ships one runnable component: `anomaly_detection/` (one-class anomaly scoring for already-cropped bottle-cap ROI images).
-- Upstream ROI detection is explicitly out of scope; `anomaly_detection/README.md` documents YOLOv8 as a separate pipeline stage.
-- Root `README.md` is minimal; treat `anomaly_detection/README.md` and code docstrings as the operational source of truth.
-- Intended runtime target: NVIDIA Jetson edge hardware.
+
+- Full pipeline: cap detection + cropping → feature extraction → Mahalanobis
+  anomaly scoring, all deployable on NVIDIA Jetson edge hardware.
+- Four root-level CLI scripts delegate entirely to the `anomaly/` package;
+  scripts contain no implementation logic.
+- `README.md` is the operational source of truth for usage; code docstrings
+  are authoritative for API details.
+- Intended runtime target: NVIDIA Jetson (Python 3.13, torch, torchvision,
+  opencv-python, numpy, Pillow).
 
 ## Architecture in One Sentence
 
-Frozen ResNet-18 → 512-dim feature vector → Mahalanobis distance against a Ledoit-Wolf–regularised multivariate Gaussian → GOOD / ANOMALOUS verdict.
+`preprocess.py` (Hough-circle crop + augment) → `build_distribution.py`
+(frozen ResNet-18 → optional PCA → Ledoit-Wolf Gaussian) → `inference.py` /
+`video_inference.py` (Mahalanobis distance → GOOD / ANOMALOUS).
 
-## Architecture Map (Read These First)
-- `anomaly_detection/calibrate.py`: calibration CLI; discovers images, extracts features, fits distribution, writes `.pkl` model.
-- `anomaly_detection/infer.py`: inference CLI; loads calibration, scores one image or directory, prints table, uses exit codes 0/1/2.
-- `anomaly_detection/anomaly/features.py`: frozen ResNet-18 feature extraction (`FEATURE_DIM = 512`), image transforms, recursive file discovery.
-- `anomaly_detection/anomaly/distribution.py`: pure-NumPy Ledoit-Wolf shrinkage + Mahalanobis scoring + percentile threshold fitting.
-- `anomaly_detection/anomaly/io.py`: pickle schema + required key validation + `_format_version` guard.
-- `anomaly_detection/tests/test_distribution.py`: canonical behavior checks for math contracts and threshold semantics.
+## Architecture Map
+
+### Root scripts (CLI wrappers only — no implementation)
+
+| Script | Delegates to |
+|---|---|
+| `preprocess.py` | `anomaly.preprocess.process_image` / `process_dir` |
+| `build_distribution.py` | `anomaly.features`, `anomaly.distribution`, `anomaly.pca`, `anomaly.io` |
+| `inference.py` | `anomaly.detector.AnomalyDetector` |
+| `video_inference.py` | `anomaly.detector.AnomalyDetector` + display helpers (UI concern, stays in script) |
+
+### Package modules (`anomaly/`)
+
+| Module | Role |
+|---|---|
+| `cap_detection.py` | Blob detect (Otsu sat + morphology) → Hough circle refinement → radial rim radius → 256×256 masked crop |
+| `augment.py` | `AugParams` (gamma, saturation, brightness, rotation, perspective skew, noise, blur) + `augment_crop` |
+| `preprocess.py` | `process_image`, `process_dir`, `make_contact_sheet` — detect-first augmentation pipeline |
+| `features.py` | Frozen ResNet-18 (`FEATURE_DIM = 512`), ImageNet transforms, `find_images`, `extract_features` |
+| `distribution.py` | Pure-NumPy Ledoit-Wolf shrinkage + Mahalanobis scoring + `fit_distribution` |
+| `pca.py` | Pure-NumPy PCA — `fit`, `transform`, `inverse_transform`, `explained_variance_ratio` |
+| `io.py` | Pickle schema, required-key validation, `_format_version` guard, `save_calibration` / `load_calibration` |
+| `detector.py` | `AnomalyDetector(calibration_path, threshold, device)` — `score_crop(bgr)`, `score_image(bgr_frame)` |
 
 ## The Math Pipeline
 
-### 1. Feature Extraction
+### 1. Feature Extraction (`features.py`)
 - ResNet-18 pretrained on ImageNet-1K, **final FC layer removed**
-- Output: global average-pool → shape `(B, 512, 1, 1)` → squeezed to `(B, 512)`
+- Output: global average-pool → `(B, 512)` float32
 - All parameters **frozen** (`requires_grad=False`), model in `eval()` mode
-- Images preprocessed: resize to 224×224, ToTensor, ImageNet normalisation
+- Images preprocessed: resize 224×224, ToTensor, ImageNet normalisation
 
-### 2. Distribution Fitting (calibrate.py)
-1. Compute sample mean **μ** of all calibration feature vectors
+### 2. Optional PCA (`pca.py`)
+- Fits on calibration features; retained at inference via the `.pkl` model
+- `n_components` (exact) or `variance_threshold` (cumulative explained variance)
+- `n_components` overrides `variance_threshold` when both are set
+- `eigenvalues_` contains all d eigenvalues (not just retained); `components_` is `(d, k)`
+
+### 3. Distribution Fitting (`distribution.py`, `build_distribution.py`)
+1. Compute sample mean **μ**
 2. Centre data: `X_c = X − μ`
-3. Fit **Ledoit-Wolf shrinkage covariance** `Σ̂ = (1−α)S + α·(tr(S)/d)·I`
-   - α is analytically optimal (Ledoit & Wolf 2004), no hyperparameter search
-   - Critical when n ≈ 100–500 samples and d = 512 features (n < d is common)
-4. Invert: `Σ̂⁻¹` (symmetrised after inversion for numerical stability)
-5. Compute calibration distances and percentile thresholds (p90, p95, p99)
+3. Optionally project via PCA: `X_c = X_c @ W` where `W` is `(d, k)`
+4. Fit **Ledoit-Wolf shrinkage**: `Σ̂ = (1−α)S + α·(tr(S)/d)·I`
+   - α analytically optimal (Ledoit & Wolf 2004), no hyperparameter search
+5. Invert: `Σ̂⁻¹` (symmetrised after inversion)
+6. Compute calibration distances and percentile thresholds (p90, p95, p99)
 
-### 3. Anomaly Scoring (infer.py)
-- Mahalanobis distance: `d(x) = √[(x−μ)ᵀ Σ̂⁻¹ (x−μ)]`
-- Vectorised batch form: `sqrt(sum((D @ inv_cov) * D, axis=1))` where `D = X − μ`
-- Flag if `d(x) > threshold`
+### 4. Anomaly Scoring (`detector.py`)
+- `score_crop(bgr)`: PIL BGR→RGB → transform → no_grad forward → PCA project if enabled → `mahalanobis_distances`
+- `score_image(bgr_frame)`: runs `cap_detection.process_image` first, then `score_crop`
+- Vectorised distance: `sqrt(sum((D @ inv_cov) * D, axis=1))` where `D = X − μ`
 
-### 4. Threshold Semantics
+### 5. Threshold Semantics
 | Threshold | Expected false-positive rate |
 |---|---|
 | p99 (default) | ~1% |
@@ -48,75 +77,94 @@ Frozen ResNet-18 → 512-dim feature vector → Mahalanobis distance against a L
 | p90 | ~10% |
 
 ## Data and Control Flow
-- Calibration path: image paths -> tensors -> 512D features -> `fit_distribution()` -> save model dict via `save_calibration()`.
-- Inference path: load model dict -> extract features -> `mahalanobis_distances()` -> compare to `thresholds[str(percentile)]` -> verdict.
-- Calibration model contract includes: `mean`, `inv_cov`, `thresholds` (`"90"`, `"95"`, `"99"`), `calibration_distances`, `n_samples`, `shrinkage_alpha`, plus optional `metadata`.
+
+**Calibration path:**
+```
+image paths → BGR frames → cap detection → 256×256 crops
+    → augmentation (optional) → ResNet-18 → 512D features
+    → PCA (optional) → fit_distribution() → save_calibration()
+```
+
+**Inference path:**
+```
+BGR image → AnomalyDetector.score_crop()
+    → PIL transform → ResNet-18 → PCA project → mahalanobis_distances()
+    → compare to thresholds[str(percentile)] → GOOD / ANOMALOUS
+```
 
 ## Calibration Model (.pkl) Schema
 
 ```python
 {
-    "mean":                   np.ndarray (512,)      # distribution centre
-    "inv_cov":                np.ndarray (512, 512)  # precision matrix
+    "mean":                   np.ndarray (k,)        # post-PCA distribution centre; k=512 if no PCA
+    "inv_cov":                np.ndarray (k, k)      # precision matrix
     "thresholds":             {"90": float, "95": float, "99": float}
-    "calibration_distances":  np.ndarray (N,)        # per-image scores
-    "shrinkage_alpha":        float                  # L-W intensity used
+    "calibration_distances":  np.ndarray (N,)
+    "shrinkage_alpha":        float
     "n_samples":              int
+    "pca":                    PCA | None             # fitted PCA object, or None
     "metadata":               dict                   # provenance
     "_format_version":        int (= 1)
 }
 ```
 
 ## Developer Workflows
-- Create calibration file:
+
 ```bash
-python anomaly_detection/calibrate.py --images-dir ./good_caps --output ./calibration.pkl --device cpu --batch-size 16
-```
-- Run inference on one image:
-```bash
-python anomaly_detection/infer.py --calibration ./calibration.pkl --image ./cap.jpg --threshold 99
-```
-- Run inference on a directory:
-```bash
-python anomaly_detection/infer.py --calibration ./calibration.pkl --images-dir ./bottle_cap_data/ --threshold 99
-```
-- Run math-focused tests (no GPU/image assets needed):
-```bash
-cd anomaly_detection
-python -m pytest tests/test_distribution.py -v
+# Step 1 — preprocess a directory of raw images
+python preprocess.py --images-dir raw/ --out-dir dataset/ --n-aug 12 --seed 42
+
+# Step 2 — build calibration model
+python build_distribution.py --images-dir dataset/train/ --output distribution.pkl --device cpu
+
+# Step 2 (with PCA)
+python build_distribution.py --images-dir dataset/train/ --output distribution.pkl --pca-variance 0.95
+
+# Step 3 — score images
+python inference.py --calibration distribution.pkl --images-dir dataset/val/ --threshold 99
+
+# Step 4 — live webcam
+python video_inference.py --calibration distribution.pkl --source 0
+
+# Run tests
+python -m pytest anomaly/tests/ -v
 ```
 
-Exit codes: `0` = all GOOD, `1` = at least one ANOMALOUS, `2` = fatal error.
+Exit codes for `inference.py` and `video_inference.py`:
+`0` = all GOOD, `1` = at least one ANOMALOUS, `2` = fatal error.
 
 ## Project-Specific Conventions
-- Keep core statistics in NumPy (`distribution.py`); avoid adding sklearn/pandas/opencv dependencies for this path.
-- Keep feature extraction frozen/inference-only: `build_feature_extractor()` removes FC layer and sets `requires_grad_(False)`.
-- Preserve threshold key format as strings (`"90"`, `"95"`, `"99"`), since CLIs index thresholds using stringified percentile ints.
-- `infer.py` is automation-friendly: preserve exit code semantics (0 all good, 1 anomalies, 2 fatal errors).
-- Logging is intentionally separated from stdout summaries (`--log-level` defaults differ between calibrate and infer).
+
+- Root scripts contain no implementation — only `argparse`, delegation calls,
+  and exit codes.  All logic lives in `anomaly/`.
+- Keep core statistics in pure NumPy (`distribution.py`, `pca.py`); no
+  sklearn/scipy for these paths.
+- Keep feature extraction frozen/inference-only: `build_feature_extractor()`
+  removes the FC layer and calls `requires_grad_(False)`.
+- Threshold keys are strings (`"90"`, `"95"`, `"99"`) throughout — CLIs
+  index with stringified percentile ints.
+- `inference.py` and `video_inference.py` are automation-friendly: preserve
+  exit code semantics.
+- Logging (`--log-level`) is separated from stdout summaries.
+- `AnomalyDetector` is the single entry point for all scoring code; do not
+  duplicate ResNet-18 loading or Mahalanobis logic in scripts.
 
 ## Integration Notes and Safe Extension Points
-- Primary external runtime deps: `torch`, `torchvision`, `numpy`, `Pillow` (see `pyproject.toml`), with Python `>=3.13`.
-- No scikit-learn, opencv, pandas, or anomalib.
-- Image discovery is recursive and extension-driven (`SUPPORTED_EXTENSIONS` in `features.py`); update that tuple for new formats.
-- If calibration pickle schema changes, bump `_FORMAT_VERSION` in `io.py` and keep backward-compat checks explicit.
-- Public package surface is controlled in `anomaly_detection/anomaly/__init__.py`; export new APIs there intentionally.
-- `anomaly_detection/perception/` is currently empty; do not assume active perception-side contracts yet.
-- Recommend 50–200 calibration images for initial deployment, 200–500 for production.
+
+- Primary deps: `torch`, `torchvision`, `numpy`, `opencv-python`, `Pillow`
+  (see `pyproject.toml`), Python ≥ 3.13.
+- Image discovery is recursive and extension-driven (`SUPPORTED_EXTENSIONS`
+  in `features.py`); update that tuple for new formats.
+- If the calibration pickle schema changes, bump `_FORMAT_VERSION` in `io.py`
+  and keep backward-compat checks explicit.
+- Public package surface is controlled in `anomaly/__init__.py`.
+- Recommended calibration set size: 50–200 images for initial deployment,
+  200–500 for production.
 
 ## Known Limitations
-- **Subtle digit errors** (e.g. "2025" vs "2026") may not be caught — the 512-dim global feature averages over the whole image; localised single-character differences may not shift the feature vector enough.
-- **Distribution shift** (new camera, lighting, crop parameters) causes false positives. Recalibrate whenever the imaging conditions change.
-- Anomalies that look like ImageNet features may get low anomaly scores.
 
-## Inference Results Discussion (2026-03-18, 109 images)
-
-- **Threshold**: p99 = 10.8773
-- **Flag rate**: 1.8% (2 of 109) — consistent with the expected ~1% for a p99 threshold
-- **Flagged images**:
-  - `IMG_4138.jpg` — distance 10.8789 (margin above threshold: **+0.0016**, borderline)
-  - `IMG_4176.jpg` — distance 10.9896 (margin above threshold: **+0.1123**, more convincing)
-
-These results were produced by scoring the **calibration images against their own calibration model**. A p99 threshold by definition flags ~1% of the calibration set, so 1–2 flags in 109 images is the statistically expected outcome, not evidence of genuine anomalies.
-
-To validate the detector on true anomalies, score images known to be defective and verify those receive distances well above the threshold.
+- **Subtle digit errors** (e.g. "2025" vs "2026") may not be caught — the
+  512-dim global feature averages over the whole image.
+- **Distribution shift** (new camera, lighting, crop parameters) causes false
+  positives. Recalibrate whenever imaging conditions change.
+- **Anomalies that look like ImageNet features** may receive a low anomaly score.
