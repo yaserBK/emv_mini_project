@@ -21,5 +21,5 @@ explicit = true
 
 [tool.uv.sources]
 torch = [
-    { index = "nvidia-jetson", marker = "platform_machine == 'aarch64'" },
+    { index = "nvidia-jetson", marker = "platform_machine == 'aarch64' and python_version == '3.8'" },
 ]
