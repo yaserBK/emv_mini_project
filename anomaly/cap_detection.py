@@ -43,6 +43,9 @@ RIM_VAL_MIN   = 95      # min brightness considered "on-cap"
 # Hough refinement (tried in order, most → least strict)
 HOUGH_P2_VALUES = [35, 28, 22]
 
+# Low-saturation fallback threshold
+SAT_GREY_THRESHOLD = 25  # mean saturation below this → use gradient rim finder
+
 
 # ── Stage 1a: normalise ────────────────────────────────────────────────────
 
@@ -126,6 +129,47 @@ def _blob_detect_fast(
     return None
 
 
+# ── Stage 1b fallback: global Hough ───────────────────────────────────────
+
+
+def _hough_global(norm_small: np.ndarray, area_s: int) -> Optional[tuple]:
+    """
+    Global HoughCircles on grayscale — fallback for low-saturation images where
+    colour-based blob detection finds nothing (e.g. silver/metallic caps on
+    similarly-coloured backgrounds).
+
+    Returns an ellipse-compatible tuple ((cx, cy), (MA, ma), angle) in the
+    same pixel space as *norm_small*, or None.
+    """
+    h, w    = norm_small.shape[:2]
+    gray    = cv2.cvtColor(norm_small, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (9, 9), 2)
+
+    cx_img, cy_img = w / 2, h / 2
+    min_r = max(10, int(np.sqrt(MIN_AREA_FRAC * area_s / np.pi)))
+    max_r = int(np.sqrt(MAX_AREA_FRAC * area_s / np.pi))
+
+    for p2 in [40, 32, 25, 18]:
+        circles = cv2.HoughCircles(
+            blurred, cv2.HOUGH_GRADIENT, dp=1.2,
+            minDist=min(h, w) * 0.3,
+            param1=60, param2=p2,
+            minRadius=min_r, maxRadius=max_r,
+        )
+        if circles is None:
+            continue
+        best, best_score = None, -1.0
+        for cx, cy, r in circles[0]:
+            dist  = np.hypot((cx - cx_img) / w, (cy - cy_img) / h)
+            score = max(0.0, 1.0 - 2.0 * dist)
+            if score > best_score:
+                best_score, best = score, (float(cx), float(cy), float(r))
+        if best is not None and best_score > 0.0:
+            cx, cy, r = best
+            return ((cx, cy), (r * 2.0, r * 2.0), 0.0)
+    return None
+
+
 # ── Stage 1: find_cap ─────────────────────────────────────────────────────
 
 
@@ -152,6 +196,9 @@ def find_cap(
     if ell_s is None:
         raw_s = cv2.resize(img, (DETECT_SIZE, DETECT_SIZE), interpolation=cv2.INTER_AREA)
         ell_s = _blob_detect_fast(raw_s, area_s)
+
+    if ell_s is None:
+        ell_s = _hough_global(norm_s, area_s)
 
     if ell_s is None:
         return None
@@ -247,6 +294,61 @@ def find_rim_radius(
     return int(np.median(clean))
 
 
+# ── Stage 2b: gradient rim finder (low-saturation fallback) ───────────────
+
+
+def _rim_radius_gradient(
+    img: np.ndarray,
+    cx: float,
+    cy: float,
+    r_approx: int,
+) -> int:
+    """
+    Gradient-magnitude rim finder for low-saturation (silver/metallic) caps.
+
+    For each radial ray, finds the pixel with the highest gradient magnitude
+    within a tight window around r_approx.  The knurling edge produces a strong
+    brightness transition regardless of colour, unlike the saturation-based
+    walker which fails when cap and background are both low-saturation.
+    """
+    h0, w0     = img.shape[:2]
+    norm_s     = _normalise_fast(img)
+    hs, ws     = norm_s.shape[:2]
+    sx         = ws / w0
+    cx_s, cy_s = cx * sx, cy * sx
+    r_s        = r_approx * sx
+
+    gray = cv2.cvtColor(norm_s, cv2.COLOR_BGR2GRAY)
+    gx   = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    gy   = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    grad = np.sqrt(gx ** 2 + gy ** 2)
+
+    r_min = int(r_s * 0.75)
+    r_max = int(r_s * 1.25)
+    outer = []
+
+    for a_deg in np.linspace(0, 360, N_RIM_ANGLES, endpoint=False):
+        a              = np.deg2rad(a_deg)
+        best_r, best_g = None, 0.0
+        for rr in range(r_min, r_max):
+            px = int(cx_s + rr * np.cos(a))
+            py = int(cy_s + rr * np.sin(a))
+            if not (0 <= px < ws and 0 <= py < hs):
+                break
+            g = float(grad[py, px])
+            if g > best_g:
+                best_g, best_r = g, rr
+        if best_r is not None and best_g > 8.0:
+            outer.append(best_r / sx)
+
+    if not outer:
+        return r_approx
+    clean = [v for v in outer if v >= r_approx * 0.85]
+    if len(clean) < 6:
+        return int(np.percentile(outer, 90))
+    return int(np.median(clean))
+
+
 # ── Stage 3: masked crop ───────────────────────────────────────────────────
 
 
@@ -319,7 +421,18 @@ def process_image(img: np.ndarray) -> dict:
 
     (cx, cy), (MA, ma), _ = ellipse
     r_approx = int(max(MA, ma) / 2)
-    r_true   = find_rim_radius(img, cx, cy, r_approx)
+
+    # For low-saturation images (silver/metallic caps) the saturation-based rim
+    # finder cannot distinguish cap from bottle body — use gradient peaks instead.
+    small_hsv = cv2.cvtColor(
+        cv2.resize(img, (DETECT_SIZE, DETECT_SIZE), interpolation=cv2.INTER_AREA),
+        cv2.COLOR_BGR2HSV,
+    )
+    if small_hsv[..., 1].mean() < SAT_GREY_THRESHOLD:
+        r_true = _rim_radius_gradient(img, cx, cy, r_approx)
+    else:
+        r_true = find_rim_radius(img, cx, cy, r_approx)
+
     crop, mask = make_masked_crop(img, cx, cy, r_true)
 
     result.update(
