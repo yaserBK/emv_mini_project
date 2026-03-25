@@ -156,7 +156,7 @@ def process_dir(
 
     train_thumbs: List = []
     val_thumbs:   List = []
-    total = len(sources) * n_aug
+    total = len(sources) * n_aug if n_aug > 0 else len(sources)
 
     for path in sources:
         img = cv2.imread(str(path))
@@ -175,32 +175,52 @@ def process_dir(
         cx, cy = result['centre']
         print(f"  OK    {path.name:<30}  r={result['r_true']}px  centre=({cx},{cy})")
 
-        for i in range(1, n_aug + 1):
-            p   = AugParams(rng)
-            aug = augment_crop(crop, p)
-
-            is_val = (i / n_aug) > (1 - val_frac)
-            split  = 'val' if is_val else 'train'
-            fname  = f"{stem}_aug_{i:03d}.jpg"
-            dst    = output_dir / split / fname
-            cv2.imwrite(str(dst), aug)
-
+        if n_aug == 0:
+            src_idx = sources.index(path)
+            is_val  = (src_idx / len(sources)) >= (1 - val_frac)
+            split   = 'val' if is_val else 'train'
+            fname   = f"{stem}.jpg"
+            dst     = output_dir / split / fname
+            cv2.imwrite(str(dst), crop)
             entry = {
                 'file':      str(dst.relative_to(output_dir)),
                 'source':    stem,
-                'aug_index': i,
-                'params':    p.describe(),
+                'aug_index': 0,
+                'params':    None,
             }
             if is_val:
                 metadata['val'].append(entry)
-                val_thumbs.append((f"{stem[:8]}_{i}", aug))
+                val_thumbs.append((stem[:16], crop))
             else:
                 metadata['train'].append(entry)
-                train_thumbs.append((f"{stem[:8]}_{i}", aug))
+                train_thumbs.append((stem[:16], crop))
+        else:
+            for i in range(1, n_aug + 1):
+                p   = AugParams(rng)
+                aug = augment_crop(crop, p)
 
-            done = sources.index(path) * n_aug + i
-            pct  = done / total * 100
-            print(f"  [{done:4d}/{total}  {pct:5.1f}%]  {split}/{fname}", end='\r')
+                is_val = (i / n_aug) > (1 - val_frac)
+                split  = 'val' if is_val else 'train'
+                fname  = f"{stem}_aug_{i:03d}.jpg"
+                dst    = output_dir / split / fname
+                cv2.imwrite(str(dst), aug)
+
+                entry = {
+                    'file':      str(dst.relative_to(output_dir)),
+                    'source':    stem,
+                    'aug_index': i,
+                    'params':    p.describe(),
+                }
+                if is_val:
+                    metadata['val'].append(entry)
+                    val_thumbs.append((f"{stem[:8]}_{i}", aug))
+                else:
+                    metadata['train'].append(entry)
+                    train_thumbs.append((f"{stem[:8]}_{i}", aug))
+
+                done = sources.index(path) * n_aug + i
+                pct  = done / total * 100
+                print(f"  [{done:4d}/{total}  {pct:5.1f}%]  {split}/{fname}", end='\r')
 
     print(f"\n\n  Train: {len(metadata['train'])} images")
     print(f"  Val  : {len(metadata['val'])} images")

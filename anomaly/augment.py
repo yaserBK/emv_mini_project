@@ -11,7 +11,7 @@ Augmentation distributions
   gamma        log-normal  μ=0, σ=0.30  → typically 0.55–1.82  (V channel)
   saturation   log-normal  μ=0, σ=0.28  → typically 0.60–1.67  (S channel)
   brightness   normal      μ=0, σ=12    → ±~24 additive luma shift
-  rotation     uniform     0°–360°      (caps are rotationally symmetric)
+  rotation     disabled    always 0°
   skew         uniform     ±8°          (perspective tilt, two axes)
   noise        half-normal σ=6          → 0–~18 std Gaussian pixel noise
   blur         Bernoulli   p=0.25       → slight Gaussian blur (kernel 3 or 5)
@@ -38,8 +38,8 @@ class AugParams:
         # Brightness shift: normal μ=0, σ=12, additive to V channel
         self.brightness = float(np.clip(rng.normal(0, 12), -40, 40))
 
-        # Rotation: uniform [0, 360) — caps have no inherent orientation
-        self.rotation = float(rng.uniform(0, 360))
+        # Rotation: disabled
+        self.rotation = 0.0
 
         # Perspective skew: uniform ±8° on each axis
         self.skew_x = float(rng.uniform(-8, 8))
