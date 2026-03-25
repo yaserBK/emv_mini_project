@@ -250,6 +250,17 @@ def main(argv=None) -> int:
         return 2
 
     # ------------------------------------------------------------------
+    # Apply PCA projection (if calibration was fitted with PCA)
+    # ------------------------------------------------------------------
+    if cal.get("pca_enabled", False):
+        pca_mean = cal["pca_mean"]
+        pca_components = cal["pca_components"]
+        n_in = features.shape[1]
+        n_out = pca_components.shape[1]
+        logger.info("PCA: Projecting features from %d to %d dimensions", n_in, n_out)
+        features = (features - pca_mean) @ pca_components
+
+    # ------------------------------------------------------------------
     # Compute Mahalanobis distances
     # ------------------------------------------------------------------
     distances = mahalanobis_distances(features, mean, inv_cov)
@@ -267,6 +278,10 @@ def main(argv=None) -> int:
         meta = cal["metadata"]
         print(f"  Calibrated: {meta.get('calibration_date', 'unknown')[:19]}  "
               f"({meta.get('n_images_used', '?')} good images)")
+    if cal.get("pca_enabled", False):
+        print(f"  PCA       : {cal['pca_components'].shape[0]}d → "
+              f"{cal['pca_n_components']}d  "
+              f"({cal.get('pca_variance_explained', 0) * 100:.1f}% variance retained)")
     print("=" * 90)
 
     _print_header(threshold_value, args.threshold)

@@ -2,8 +2,9 @@
 anomaly — Date-stamp bottle-cap anomaly detection package.
 
 This package provides the core components for one-class anomaly detection:
-  - features.py   : frozen ResNet-18 feature extraction
-  - distribution.py : Ledoit-Wolf covariance estimation and Mahalanobis scoring
+  - features.py    : frozen ResNet-18 feature extraction
+  - pca.py         : PCA dimensionality reduction (pure NumPy)
+  - distribution.py: Ledoit-Wolf covariance estimation and Mahalanobis scoring
   - io.py          : calibration model serialisation / deserialisation
 """
 
@@ -20,6 +21,7 @@ from anomaly.distribution import (
     mahalanobis_distances,
 )
 from anomaly.io import load_calibration, save_calibration
+from anomaly.pca import PCA
 
 __all__ = [
     "build_feature_extractor",
@@ -32,4 +34,5 @@ __all__ = [
     "mahalanobis_distances",
     "load_calibration",
     "save_calibration",
+    "PCA",
 ]

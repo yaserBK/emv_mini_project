@@ -4,18 +4,28 @@ calibrate.py — Calibration (training) entry point.
 Given a directory of known-good cropped bottle-cap images, this script:
   1. Finds all supported images recursively.
   2. Extracts 512-dimensional ResNet-18 feature vectors in batches.
-  3. Fits a multivariate Gaussian with Ledoit-Wolf shrinkage.
-  4. Saves the calibration model (mean, inverse covariance, thresholds,
-     calibration distances, and provenance metadata) to a pickle file.
-  5. Prints a human-readable summary to stdout.
+  3. Optionally reduces dimensionality via PCA (default: retain 95% variance).
+  4. Fits a multivariate Gaussian with Ledoit-Wolf shrinkage in the
+     (possibly reduced) feature space.
+  5. Saves the calibration model to disk.
+  6. Prints a human-readable summary to stdout.
 
 Usage
 -----
-    python calibrate.py \\
-        --images-dir ./good_caps/ \\
-        --output     ./calibration.pkl \\
-        --device     cuda \\
-        --batch-size 16
+    # Default — PCA retaining 95% of variance
+    python calibrate.py --images-dir ./good_caps/ --output ./calibration.pkl
+
+    # PCA retaining exactly 64 components
+    python calibrate.py --images-dir ./good_caps/ --output ./calibration.pkl \\
+        --pca-components 64
+
+    # PCA retaining enough components for 99% variance
+    python calibrate.py --images-dir ./good_caps/ --output ./calibration.pkl \\
+        --pca-variance 0.99
+
+    # No PCA — full 512-dim space
+    python calibrate.py --images-dir ./good_caps/ --output ./calibration.pkl \\
+        --no-pca
 
 See ``python calibrate.py --help`` for all options.
 """
@@ -37,6 +47,7 @@ from anomaly.features import (
     find_images,
 )
 from anomaly.io import save_calibration
+from anomaly.pca import PCA
 
 # ---------------------------------------------------------------------------
 # Logging setup
@@ -97,6 +108,28 @@ def parse_args(argv=None) -> argparse.Namespace:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging verbosity (default: INFO).",
     )
+
+    # PCA options — mutually exclusive
+    pca_group = parser.add_mutually_exclusive_group()
+    pca_group.add_argument(
+        "--pca-components",
+        type=int,
+        metavar="N",
+        help="Retain exactly N principal components (e.g. 64).",
+    )
+    pca_group.add_argument(
+        "--pca-variance",
+        type=float,
+        metavar="FLOAT",
+        help="Retain enough components to explain this fraction of total variance "
+             "(e.g. 0.95).  Default when no PCA flag is given.",
+    )
+    pca_group.add_argument(
+        "--no-pca",
+        action="store_true",
+        help="Disable PCA and operate in the full 512-dimensional feature space.",
+    )
+
     return parser.parse_args(argv)
 
 
@@ -114,7 +147,6 @@ def main(argv=None) -> int:
     """
     args = parse_args(argv)
 
-    # Apply log level
     logging.getLogger().setLevel(getattr(logging, args.log_level))
 
     images_dir = Path(args.images_dir).resolve()
@@ -134,7 +166,6 @@ def main(argv=None) -> int:
     # ------------------------------------------------------------------
     try:
         device = torch.device(args.device)
-        # Probe device availability
         torch.zeros(1).to(device)
     except (RuntimeError, AssertionError) as exc:
         logger.error("Could not use device '%s': %s", args.device, exc)
@@ -166,7 +197,7 @@ def main(argv=None) -> int:
     extractor = build_feature_extractor(device)
 
     # ------------------------------------------------------------------
-    # Extract features
+    # Extract features (512-dim)
     # ------------------------------------------------------------------
     features, valid_paths = extract_features(
         image_paths,
@@ -185,9 +216,40 @@ def main(argv=None) -> int:
         return 1
 
     # ------------------------------------------------------------------
-    # Fit distribution
+    # PCA dimensionality reduction (optional)
+    # ------------------------------------------------------------------
+    pca_data = {"pca_enabled": False}
+
+    if not args.no_pca:
+        if args.pca_components is not None:
+            pca = PCA(n_components=args.pca_components)
+        else:
+            variance_target = args.pca_variance if args.pca_variance is not None else 0.95
+            pca = PCA(variance_threshold=variance_target)
+
+        features = pca.fit_transform(features)
+        ratios, cumulative = pca.explained_variance_ratio()
+
+        pca_data = {
+            "pca_enabled": True,
+            "pca_mean": pca.mean_,
+            "pca_components": pca.components_,
+            "pca_eigenvalues": pca.eigenvalues_,
+            "pca_n_components": pca.n_components_,
+            "pca_variance_explained": float(cumulative[-1]),
+        }
+        logger.info(
+            "PCA: Reduced feature space from %d → %d dimensions (%.1f%% variance retained)",
+            FEATURE_DIM, pca.n_components_, cumulative[-1] * 100,
+        )
+    else:
+        logger.info("PCA disabled — operating in full %d-dim feature space.", FEATURE_DIM)
+
+    # ------------------------------------------------------------------
+    # Fit distribution in the (possibly reduced) feature space
     # ------------------------------------------------------------------
     model = fit_distribution(features)
+    model.update(pca_data)
 
     # ------------------------------------------------------------------
     # Attach metadata
@@ -201,6 +263,8 @@ def main(argv=None) -> int:
         "feature_extractor": "resnet18-imagenet1k-v1-avgpool",
         "feature_dim": FEATURE_DIM,
         "device": str(device),
+        "pca_enabled": pca_data["pca_enabled"],
+        "pca_n_components": pca_data.get("pca_n_components", FEATURE_DIM),
     }
 
     # ------------------------------------------------------------------
@@ -225,6 +289,15 @@ def main(argv=None) -> int:
         print(f"  Images skipped   : {n_failed}  (load failures)")
     print(f"  Feature extractor: ResNet-18 avgpool (dim={FEATURE_DIM})")
     print(f"  Device           : {device}")
+    print()
+
+    if pca_data["pca_enabled"]:
+        print(f"  PCA              : enabled")
+        print(f"  PCA dims         : {FEATURE_DIM} → {pca_data['pca_n_components']}")
+        print(f"  PCA variance     : {pca_data['pca_variance_explained'] * 100:.1f}% retained")
+    else:
+        print(f"  PCA              : disabled (full {FEATURE_DIM}-dim space)")
+
     print(f"  L-W shrinkage α  : {model['shrinkage_alpha']:.4f}")
     print()
     print("  Calibration Mahalanobis distances:")
