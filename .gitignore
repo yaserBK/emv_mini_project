@@ -25,3 +25,6 @@ build/
 # Project-specific
 *.pkl
 .claude/
+
+# Datasets
+dataset/
