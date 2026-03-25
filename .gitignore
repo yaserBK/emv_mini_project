@@ -210,8 +210,3 @@ __marimo__/
 .pytest_cache
 .venv
 
-# Image files
-*.jpg
-*.jpeg
-*.png
-
