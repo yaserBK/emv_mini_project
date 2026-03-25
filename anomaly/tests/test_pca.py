@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-Unit tests for anomaly.pca — PCA dimensionality reduction.
+Unit tests for anomaly.pca -- PCA dimensionality reduction.
 
 All tests use synthetic NumPy arrays; no ML framework or image data required.
 Run with:
@@ -45,7 +44,7 @@ class TestPCAFit(unittest.TestCase):
         )
 
     def test_eigenvalues_non_negative(self):
-        """Covariance eigenvalues must be ≥ 0 (PSD matrix)."""
+        """Covariance eigenvalues must be >= 0 (PSD matrix)."""
         rng = _rng(2)
         X = rng.standard_normal((60, 25))
         pca = PCA(n_components=25)
@@ -93,7 +92,7 @@ class TestPCAComponents(unittest.TestCase):
 
     def test_components_are_orthonormal(self):
         """
-        The principal components must be orthonormal: Wᵀ W = I.
+        The principal components must be orthonormal: W^T W = I.
 
         This follows from the eigendecomposition of a symmetric matrix;
         eigenvectors are orthogonal and are normalised by ``eigh``.
@@ -108,7 +107,7 @@ class TestPCAComponents(unittest.TestCase):
             gram,
             np.eye(30),
             atol=1e-10,
-            err_msg="Principal components are not orthonormal (Wᵀ W ≠ I)",
+            err_msg="Principal components are not orthonormal (W^T W != I)",
         )
 
     def test_variance_threshold_selects_few_components(self):
@@ -133,13 +132,13 @@ class TestPCAComponents(unittest.TestCase):
         self.assertLessEqual(
             pca.n_components_,
             d_signal + 2,
-            f"Expected ≤ {d_signal + 2} components for predominantly 3-dim data, "
+            f"Expected <= {d_signal + 2} components for predominantly 3-dim data, "
             f"got {pca.n_components_}",
         )
         self.assertGreaterEqual(
             pca.n_components_,
             d_signal - 1,
-            f"Expected ≥ {d_signal - 1} components, got {pca.n_components_}",
+            f"Expected >= {d_signal - 1} components, got {pca.n_components_}",
         )
 
     def test_variance_threshold_cumulative_meets_target(self):

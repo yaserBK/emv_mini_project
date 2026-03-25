@@ -1,21 +1,21 @@
 """
-Stamp Erase Tool — Polynomial Fill + Boundary Blend
+Stamp Erase Tool -- Polynomial Fill + Boundary Blend
 ====================================================
-Stage 1 : Click 4 corners — tight quad around stamp text.
-Stage 2 : Click 3–9 points — freehand polygon for the blend region.
+Stage 1 : Click 4 corners -- tight quad around stamp text.
+Stage 2 : Click 3-9 points -- freehand polygon for the blend region.
 
-Controls — Stage 1 (quad, 4 pts):
-  Click × 4     — place corners (draggable)
-  SPACE         — confirm → Stage 2
-  R             — reset    S — skip    B — back    Q — quit
+Controls -- Stage 1 (quad, 4 pts):
+  Click x 4     -- place corners (draggable)
+  SPACE         -- confirm -> Stage 2
+  R             -- reset    S -- skip    B -- back    Q -- quit
 
-Controls — Stage 2 (blend polygon, 3–9 pts):
-  Click         — add point (draggable)
-  SPACE         — confirm (min 3 pts)
-  R             — reset    B — back to quad    Q — quit
+Controls -- Stage 2 (blend polygon, 3-9 pts):
+  Click         -- add point (draggable)
+  SPACE         -- confirm (min 3 pts)
+  R             -- reset    B -- back to quad    Q -- quit
 
 Preview:
-  SPACE         — save & next    R — redo from Stage 1    Q — quit
+  SPACE         -- save & next    R -- redo from Stage 1    Q -- quit
 
 Usage:
   uv run python annotate_and_erase.py --img_dir output/crops --out_dir output/erased
@@ -29,7 +29,7 @@ import glob
 import os
 from pathlib import Path
 
-# ── Config ─────────────────────────────────────────────────────────────────
+# -- Config -----------------------------------------------------------------
 DISPLAY_SIZE  = 750
 QUAD_COLOUR   = (0, 220, 255)
 POLY_COLOUR   = (255, 140, 0)
@@ -40,7 +40,7 @@ MAX_BLEND_PTS = 9
 TAPER_SIGMA   = 15
 ANNOT_FILE    = "stamp_annotations.json"
 
-# ── Shared drag state ───────────────────────────────────────────────────────
+# -- Shared drag state -------------------------------------------------------
 _drag_idx = None
 
 
@@ -84,7 +84,7 @@ def draw_poly(base, pts, colour, close=True):
     return out
 
 
-# ── Cap mask ─────────────────────────────────────────────────────────────────
+# -- Cap mask -----------------------------------------------------------------
 
 def get_cap_mask(img):
     """
@@ -97,7 +97,7 @@ def get_cap_mask(img):
     return ~bg
 
 
-# ── Polynomial surface fill ──────────────────────────────────────────────────
+# -- Polynomial surface fill --------------------------------------------------
 
 def poly_features(xv, yv, degree):
     cols = []
@@ -130,20 +130,20 @@ def fit_and_fill(img, fill_mask, sample_mask, degree=POLY_DEGREE):
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
-# ── Boundary blend ────────────────────────────────────────────────────────────
+# -- Boundary blend ------------------------------------------------------------
 
 def blend_boundary(img_orig, filled, quad_mask, blend_poly_mask,
                    bw=6, taper_sigma=TAPER_SIGMA):
     """
     Pass 1: bilateral smooth on narrow band around quad perimeter.
-    Pass 2: distance taper outward from quad edge — weight=1 at boundary,
+    Pass 2: distance taper outward from quad edge -- weight=1 at boundary,
             decays to 0 at taper_sigma pixels out. Inside quad always = filled.
     """
     H, W    = img_orig.shape[:2]
     result  = filled.copy().astype(np.float32)
     orig_f  = img_orig.astype(np.float32)
 
-    # Pass 1 — bilateral band
+    # Pass 1 -- bilateral band
     k       = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (bw*2+1, bw*2+1))
     dilated = cv2.dilate(quad_mask, k, iterations=1)
     eroded  = cv2.erode(quad_mask,  k, iterations=1)
@@ -152,7 +152,7 @@ def blend_boundary(img_orig, filled, quad_mask, blend_poly_mask,
     band3   = np.stack([band.astype(np.float32)]*3, axis=-1)
     result  = result*(1-band3) + smooth.astype(np.float32)*band3
 
-    # Pass 2 — outward taper
+    # Pass 2 -- outward taper
     # For each pixel OUTSIDE the quad, distance to nearest quad pixel
     outside_quad   = (quad_mask == 0).astype(np.uint8)
     dist_from_edge = cv2.distanceTransform(outside_quad, cv2.DIST_L2, 3)
@@ -170,7 +170,7 @@ def blend_boundary(img_orig, filled, quad_mask, blend_poly_mask,
     return np.clip(result, 0, 255).astype(np.uint8)
 
 
-# ── Master erase ─────────────────────────────────────────────────────────────
+# -- Master erase -------------------------------------------------------------
 
 def erase_stamp(img, quad_pts_orig, blend_pts_orig):
     H, W      = img.shape[:2]
@@ -190,7 +190,7 @@ def erase_stamp(img, quad_pts_orig, blend_pts_orig):
     sample_mask = (on_quad & cap_mask & (gray > INK_THRESH)) | \
                   ((blend_mask > 0) & ~on_quad & cap_mask)
 
-    # ── Debug output ──────────────────────────────────────────────────
+    # -- Debug output --------------------------------------------------
     print(f"    img size      : {W}x{H}")
     print(f"    cap_mask px   : {cap_mask.sum()}")
     print(f"    quad px       : {on_quad.sum()}")
@@ -204,17 +204,17 @@ def erase_stamp(img, quad_pts_orig, blend_pts_orig):
     # ------------------------------------------------------------------
 
     if on_quad.sum() == 0:
-        print("    !! quad is empty — coords may be outside image bounds")
+        print("    !! quad is empty -- coords may be outside image bounds")
         print(f"    quad_pts: {quad_pts_orig}")
         return img
 
     if cap_mask[on_quad].sum() == 0:
-        print("    !! quad region has no cap pixels — cap_mask failing?")
+        print("    !! quad region has no cap pixels -- cap_mask failing?")
         print(f"    sample BGR in quad: {img[on_quad][0]}")
         return img
 
     if fill_mask.sum() < 5:
-        print(f"    !! fill_mask too small ({fill_mask.sum()} px) — "
+        print(f"    !! fill_mask too small ({fill_mask.sum()} px) -- "
               f"no ink pixels found at threshold {INK_THRESH}")
         # Diagnostic: show what threshold would catch pixels
         for t in [120, 140, 150, 160, 165, 170, 175, 180]:
@@ -231,7 +231,7 @@ def erase_stamp(img, quad_pts_orig, blend_pts_orig):
     return result
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 def _hint(img, text):
     cv2.putText(img, text, (5, img.shape[0]-10),
@@ -253,10 +253,10 @@ def load_display(path):
 
 def _save(ann, f):
     with open(f, 'w') as fp: json.dump(ann, fp, indent=2)
-    print(f"  → {len(ann)} annotations saved to {f}")
+    print(f"  -> {len(ann)} annotations saved to {f}")
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+# -- Main ---------------------------------------------------------------------
 
 def run(img_dir, out_dir, annot_file):
     global _drag_idx
@@ -277,12 +277,12 @@ def run(img_dir, out_dir, annot_file):
 
     remaining = [p for p in img_paths if Path(p).name not in annotations]
     if not remaining:
-        print("All done — reprocessing all."); remaining = img_paths
+        print("All done -- reprocessing all."); remaining = img_paths
 
     print(f"Total: {len(img_paths)}  Done: {len(annotations)}  "
           f"Remaining: {len(remaining)}")
     print("Stage 1: click 4 corners tightly around stamp text (draggable)")
-    print(f"Stage 2: click 3–{MAX_BLEND_PTS} points for freehand blend polygon\n")
+    print(f"Stage 2: click 3-{MAX_BLEND_PTS} points for freehand blend polygon\n")
 
     WIN = "Stamp Erase"
     cv2.namedWindow(WIN, cv2.WINDOW_AUTOSIZE)
@@ -301,7 +301,7 @@ def run(img_dir, out_dir, annot_file):
         while restart:
             restart = False
 
-            # ── Stage 1: quad ─────────────────────────────────────────
+            # -- Stage 1: quad -----------------------------------------
             quad_d = []
             _drag_idx = None
             cv2.setMouseCallback(WIN, make_cb(quad_d, 4))
@@ -310,8 +310,8 @@ def run(img_dir, out_dir, annot_file):
             while s1:
                 base  = disp.copy()
                 n     = len(quad_d)
-                _prog(base, f"[{idx+1}/{len(remaining)}]  {fname}  — STAGE 1: 4 quad corners")
-                _hint(base, ("4 pts — SPACE to confirm, drag to adjust"
+                _prog(base, f"[{idx+1}/{len(remaining)}]  {fname}  -- STAGE 1: 4 quad corners")
+                _hint(base, ("4 pts -- SPACE to confirm, drag to adjust"
                              if n == 4 else
                              "Click 4 corners  SPACE=confirm  R=reset  S=skip  B=back  Q=quit"))
                 frame = draw_poly(base, quad_d, QUAD_COLOUR, close=(n==4))
@@ -339,7 +339,7 @@ def run(img_dir, out_dir, annot_file):
 
             if len(quad_d) != 4: break
 
-            # ── Stage 2: blend polygon ────────────────────────────────
+            # -- Stage 2: blend polygon --------------------------------
             blend_d = []
             _drag_idx = None
             cv2.setMouseCallback(WIN, make_cb(blend_d, MAX_BLEND_PTS))
@@ -349,7 +349,7 @@ def run(img_dir, out_dir, annot_file):
                 base = disp.copy()
                 n    = len(blend_d)
                 _prog(base, (f"[{idx+1}/{len(remaining)}]  {fname}"
-                             f"  — STAGE 2: blend polygon  ({n}/{MAX_BLEND_PTS})"))
+                             f"  -- STAGE 2: blend polygon  ({n}/{MAX_BLEND_PTS})"))
                 _hint(base, (f"Min 3, max {MAX_BLEND_PTS} pts  "
                              "SPACE=confirm  R=reset  B=back  Q=quit"))
                 frame = draw_poly(base, quad_d, QUAD_COLOUR, close=True)
@@ -373,7 +373,7 @@ def run(img_dir, out_dir, annot_file):
 
             if restart or len(blend_d) < 3: continue
 
-            # ── Run erase ─────────────────────────────────────────────
+            # -- Run erase ---------------------------------------------
             quad_orig  = to_orig(quad_d, s)
             blend_orig = to_orig(blend_d, s)
             img_orig   = cv2.imread(path)
@@ -381,14 +381,14 @@ def run(img_dir, out_dir, annot_file):
             print(f"  Erasing {fname} ...")
             erased = erase_stamp(img_orig, quad_orig, blend_orig)
 
-            # ── Preview ───────────────────────────────────────────────
+            # -- Preview -----------------------------------------------
             prev = cv2.resize(erased, (disp.shape[1], disp.shape[0]),
                               interpolation=cv2.INTER_AREA)
             cv2.polylines(prev, [np.array(quad_d, np.int32)],
                           True, QUAD_COLOUR, 1, cv2.LINE_AA)
             cv2.polylines(prev, [np.array(blend_d, np.int32)],
                           True, POLY_COLOUR, 1, cv2.LINE_AA)
-            _prog(prev, f"[{idx+1}/{len(remaining)}]  {fname}  — PREVIEW")
+            _prog(prev, f"[{idx+1}/{len(remaining)}]  {fname}  -- PREVIEW")
             _hint(prev, "SPACE=save & next  R=redo from Stage 1  Q=quit")
             cv2.imshow(WIN, prev)
 
@@ -399,7 +399,7 @@ def run(img_dir, out_dir, annot_file):
                     cv2.imwrite(out_path, erased)
                     annotations[fname] = {"quad": quad_orig, "blend": blend_orig}
                     _save(annotations, annot_file)
-                    print(f"  Saved → {out_path}")
+                    print(f"  Saved -> {out_path}")
                     idx += 1; break
                 elif k2 == ord('r'):
                     restart = True; break
@@ -410,7 +410,7 @@ def run(img_dir, out_dir, annot_file):
     _save(annotations, annot_file)
     cv2.destroyAllWindows()
     n = len([v for v in annotations.values() if v != "skip"])
-    print(f"\nFinished. {n} images erased → {out_dir}")
+    print(f"\nFinished. {n} images erased -> {out_dir}")
 
 
 if __name__ == "__main__":

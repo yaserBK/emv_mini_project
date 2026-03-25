@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-inference.py — Score bottle cap images for anomalies.
+inference.py -- Score bottle cap images for anomalies.
 
 Loads a calibration model and scores one or more pre-cropped bottle-cap
 images using Mahalanobis distance against the fitted normal distribution.
 
-Usage — single image
-─────────────────────
+Usage -- single image
+---------------------
     python inference.py --calibration distribution.pkl --image test_cap.jpg
 
-Usage — directory of images
-─────────────────────────────
+Usage -- directory of images
+-----------------------------
     python inference.py --calibration distribution.pkl --images-dir test_caps/
 
-Usage — lower threshold (more sensitive)
-─────────────────────────────────────────
+Usage -- lower threshold (more sensitive)
+-----------------------------------------
     python inference.py --calibration distribution.pkl --images-dir test_caps/ \\
         --threshold 90
 
 Exit codes
-──────────
+----------
     0  All images are GOOD.
     1  At least one ANOMALOUS image found.
     2  Fatal error (bad arguments, missing file, etc.).
@@ -87,7 +86,7 @@ def _print_header() -> None:
 
 def _print_row(name: str, distance: float, threshold: float) -> None:
     verdict = "ANOMALOUS" if distance > threshold else "GOOD     "
-    display = name if len(name) <= _COL_WIDTH else "…" + name[-(_COL_WIDTH - 1):]
+    display = name if len(name) <= _COL_WIDTH else "..." + name[-(_COL_WIDTH - 1):]
     print(f"  {display:<{_COL_WIDTH}}  {distance:>10.4f}  {threshold:>10.4f}  {verdict}")
 
 
@@ -137,7 +136,7 @@ def main(argv=None) -> int:
     for path in image_paths:
         bgr = cv2.imread(str(path))
         if bgr is None:
-            logger.warning("Could not read '%s' — skipping.", path)
+            logger.warning("Could not read '%s' -- skipping.", path)
             n_skipped += 1
             continue
         distance = detector.score_crop(bgr)

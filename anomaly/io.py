@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Serialisation and deserialisation of calibration models.
 
@@ -11,7 +10,7 @@ Saved keys
 ----------
 ``mean``                   np.ndarray (512,)        Sample mean of calibration features.
 ``inv_cov``                np.ndarray (512, 512)    Inverse Ledoit-Wolf shrinkage covariance.
-``thresholds``             dict                     Keys '90', '95', '99' → float.
+``thresholds``             dict                     Keys '90', '95', '99' -> float.
 ``calibration_distances``  np.ndarray (N,)          Per-image Mahalanobis distances.
 ``shrinkage_alpha``        float                    L-W shrinkage intensity used.
 ``n_samples``              int                      Number of calibration images.
@@ -58,7 +57,7 @@ def save_calibration(data: Dict[str, Any], path: Path) -> None:
     payload["_format_version"] = _FORMAT_VERSION
 
     path = Path(path)
-    logger.info("Saving calibration model to '%s' …", path)
+    logger.info("Saving calibration model to '%s' ...", path)
     with open(path, "wb") as fh:
         pickle.dump(payload, fh, protocol=pickle.HIGHEST_PROTOCOL)
     logger.info("Calibration model saved (%d bytes)", path.stat().st_size)
@@ -89,7 +88,7 @@ def load_calibration(path: Path) -> Dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Calibration file not found: {path}")
 
-    logger.info("Loading calibration model from '%s' …", path)
+    logger.info("Loading calibration model from '%s' ...", path)
     with open(path, "rb") as fh:
         data = pickle.load(fh)
 

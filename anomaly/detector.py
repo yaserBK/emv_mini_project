@@ -1,17 +1,16 @@
-# -*- coding: utf-8 -*-
 """
-detector.py — AnomalyDetector: load a calibration model and score images.
+detector.py -- AnomalyDetector: load a calibration model and score images.
 
 Provides the implementation used by inference.py and video_inference.py.
 Can be imported directly for custom inference pipelines.
 
 Usage
-─────
+-----
   from anomaly.detector import AnomalyDetector
 
   detector = AnomalyDetector('distribution.pkl', threshold=99, device='cpu')
 
-  # Score a pre-cropped 256×256 BGR image
+  # Score a pre-cropped 256x256 BGR image
   distance = detector.score_crop(bgr_crop)
 
   # Detect cap in a raw frame and score it in one call
@@ -45,8 +44,8 @@ class AnomalyDetector:
     Loads a calibration model produced by build_distribution.py and exposes
     two scoring methods:
 
-    * ``score_crop``  — score a pre-cropped 256×256 BGR image directly.
-    * ``score_image`` — detect the cap in a raw frame, crop it, then score it.
+    * ``score_crop``  -- score a pre-cropped 256x256 BGR image directly.
+    * ``score_image`` -- detect the cap in a raw frame, crop it, then score it.
     """
 
     def __init__(
@@ -92,14 +91,14 @@ class AnomalyDetector:
             self._device = torch.device(device)
             torch.zeros(1).to(self._device)
         except (RuntimeError, AssertionError):
-            logger.warning("Device '%s' unavailable — falling back to CPU.", device)
+            logger.warning("Device '%s' unavailable -- falling back to CPU.", device)
             self._device = torch.device('cpu')
 
         self._transform = build_transform()
         self._extractor = build_feature_extractor(self._device)
 
         logger.info(
-            "AnomalyDetector ready — threshold p%s=%.4f  device=%s  pca=%s",
+            "AnomalyDetector ready -- threshold p%s=%.4f  device=%s  pca=%s",
             threshold, self._threshold, self._device, self._pca_enabled,
         )
 
@@ -113,13 +112,13 @@ class AnomalyDetector:
         Score a pre-cropped BGR image and return its Mahalanobis distance.
 
         Args:
-            bgr_crop: HxWx3 uint8 BGR image (typically the 256×256 masked cap crop).
+            bgr_crop: HxWx3 uint8 BGR image (typically the 256x256 masked cap crop).
 
         Returns:
             Scalar Mahalanobis distance.  Values above ``threshold_value``
             indicate an anomaly.
         """
-        pil_img = Image.fromarray(bgr_crop[..., ::-1].copy())  # BGR → RGB
+        pil_img = Image.fromarray(bgr_crop[..., ::-1].copy())  # BGR -> RGB
         tensor  = self._transform(pil_img).unsqueeze(0).to(self._device)
 
         with torch.no_grad():
@@ -141,12 +140,12 @@ class AnomalyDetector:
 
         Returns:
             Dict with keys:
-              status       — 'ok' or 'no_cap'
-              distance     — Mahalanobis distance (float), or None if no cap
-              is_anomalous — bool, or None if no cap
-              crop         — 256×256 BGR masked crop, or None
-              centre       — (cx, cy) in full-image pixels, or None
-              r_true       — outer rim radius in full-image pixels, or None
+              status       -- 'ok' or 'no_cap'
+              distance     -- Mahalanobis distance (float), or None if no cap
+              is_anomalous -- bool, or None if no cap
+              crop         -- 256x256 BGR masked crop, or None
+              centre       -- (cx, cy) in full-image pixels, or None
+              r_true       -- outer rim radius in full-image pixels, or None
         """
         result = _detect_and_crop(bgr_frame)
 

@@ -1,12 +1,11 @@
-# -*- coding: utf-8 -*-
-"""cap_detection.py — Bottle cap detection and masked crop extraction.
+"""cap_detection.py -- Bottle cap detection and masked crop extraction.
 
 Cascaded Detect-Localise-Inspect (DLI) pipeline:
-  1. Normalise    — conditional gamma lift + CLAHE on V channel
-  2. Blob detect  — Otsu saturation threshold + morphology + centre-proximity scoring
-  3. Hough refine — constrained Hough snaps elongated blobs to a clean circle
-  4. Rim measure  — radial saturation walk finds true outer rim radius
-  5. Masked crop  — CROP_SIZE × CROP_SIZE output with background fill
+  1. Normalise    -- conditional gamma lift + CLAHE on V channel
+  2. Blob detect  -- Otsu saturation threshold + morphology + centre-proximity scoring
+  3. Hough refine -- constrained Hough snaps elongated blobs to a clean circle
+  4. Rim measure  -- radial saturation walk finds true outer rim radius
+  5. Masked crop  -- CROP_SIZE x CROP_SIZE output with background fill
 
 Usage::
 
@@ -14,7 +13,7 @@ Usage::
 
     result = process_image(bgr_frame)       # bgr_frame: HxWx3 uint8
     if result['status'] == 'ok':
-        crop     = result['crop']           # CROP_SIZE × CROP_SIZE BGR
+        crop     = result['crop']           # CROP_SIZE x CROP_SIZE BGR
         centre   = result['centre']         # (cx, cy) in full-image pixels
         r_true   = result['r_true']         # outer rim radius in full-image pixels
 """
@@ -23,37 +22,37 @@ import cv2
 import numpy as np
 from typing import Optional, Tuple
 
-# ── Configuration ──────────────────────────────────────────────────────────
+# -- Configuration ----------------------------------------------------------
 
-DETECT_SIZE   = 500     # px — downsample resolution for blob detection
-CROP_SIZE     = 256     # px — output crop resolution
+DETECT_SIZE   = 500     # px -- downsample resolution for blob detection
+CROP_SIZE     = 256     # px -- output crop resolution
 PADDING       = 0.08    # fraction of radius added as border around the rim
 
-BG_COLOUR     = (0, 0, 0)   # BGR — fill colour for masked-out areas
+BG_COLOUR     = (0, 0, 0)   # BGR -- fill colour for masked-out areas
 
 # Blob detection
 MIN_CIRC      = 0.45    # minimum blob circularity to consider
-MIN_AREA_FRAC = 0.03    # cap must cover ≥ 3 % of the 500 px image
-MAX_AREA_FRAC = 0.55    # cap must cover ≤ 55 % of the 500 px image
+MIN_AREA_FRAC = 0.03    # cap must cover >= 3 % of the 500 px image
+MAX_AREA_FRAC = 0.55    # cap must cover <= 55 % of the 500 px image
 
 # Rim radius measurement
 N_RIM_ANGLES  = 36      # number of radial sample directions
 RIM_SAT_MAX   = 85      # max saturation considered "on-cap"
 RIM_VAL_MIN   = 95      # min brightness considered "on-cap"
 
-# Hough refinement (tried in order, most → least strict)
+# Hough refinement (tried in order, most -> least strict)
 HOUGH_P2_VALUES = [35, 28, 22]
 
 # Low-saturation fallback threshold
-SAT_GREY_THRESHOLD = 25  # mean saturation below this → use gradient rim finder
+SAT_GREY_THRESHOLD = 25  # mean saturation below this -> use gradient rim finder
 
 
-# ── Stage 1a: normalise ────────────────────────────────────────────────────
+# -- Stage 1a: normalise ----------------------------------------------------
 
 def normalise_fast(img: np.ndarray) -> np.ndarray:
     """
     Resize to DETECT_SIZE, apply conditional gamma lift for dark images,
-    then CLAHE on the V channel.  Returns BGR at DETECT_SIZE × DETECT_SIZE.
+    then CLAHE on the V channel.  Returns BGR at DETECT_SIZE x DETECT_SIZE.
     """
     small = cv2.resize(img, (DETECT_SIZE, DETECT_SIZE), interpolation=cv2.INTER_AREA)
     hsv   = cv2.cvtColor(small, cv2.COLOR_BGR2HSV).astype(np.uint8)
@@ -69,7 +68,7 @@ def normalise_fast(img: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 
-# ── Stage 1b: blob detection ───────────────────────────────────────────────
+# -- Stage 1b: blob detection -----------------------------------------------
 
 
 def blob_detect_fast(
@@ -79,7 +78,7 @@ def blob_detect_fast(
     """
     Find the best cap-candidate blob in a normalised 500 px image.
 
-    Scoring: circularity × centre-proximity × log(area).
+    Scoring: circularity x centre-proximity x log(area).
     Returns an OpenCV ellipse tuple or None.
     """
     h, w           = norm_small.shape[:2]
@@ -129,12 +128,12 @@ def blob_detect_fast(
     return None
 
 
-# ── Stage 1b fallback: global Hough ───────────────────────────────────────
+# -- Stage 1b fallback: global Hough ---------------------------------------
 
 
 def hough_global(norm_small: np.ndarray, area_s: int) -> Optional[tuple]:
     """
-    Global HoughCircles on grayscale — fallback for low-saturation images where
+    Global HoughCircles on grayscale -- fallback for low-saturation images where
     colour-based blob detection finds nothing (e.g. silver/metallic caps on
     similarly-coloured backgrounds).
 
@@ -170,7 +169,7 @@ def hough_global(norm_small: np.ndarray, area_s: int) -> Optional[tuple]:
     return None
 
 
-# ── Stage 1: find_cap ─────────────────────────────────────────────────────
+# -- Stage 1: find_cap -----------------------------------------------------
 
 
 def find_cap(
@@ -235,7 +234,7 @@ def find_cap(
     return ((ecx_f, ecy_f), (MA_f, ma_f), angle)
 
 
-# ── Stage 2: rim radius ────────────────────────────────────────────────────
+# -- Stage 2: rim radius ----------------------------------------------------
 
 
 def find_rim_radius(
@@ -294,7 +293,7 @@ def find_rim_radius(
     return int(np.median(clean))
 
 
-# ── Stage 2b: gradient rim finder (low-saturation fallback) ───────────────
+# -- Stage 2b: gradient rim finder (low-saturation fallback) ---------------
 
 
 def rim_radius_gradient(
@@ -349,7 +348,7 @@ def rim_radius_gradient(
     return int(np.median(clean))
 
 
-# ── Stage 3: masked crop ───────────────────────────────────────────────────
+# -- Stage 3: masked crop ---------------------------------------------------
 
 
 def make_masked_crop(
@@ -359,14 +358,14 @@ def make_masked_crop(
     r_true: int,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Produce a CROP_SIZE × CROP_SIZE BGR crop masked to the cap circle.
+    Produce a CROP_SIZE x CROP_SIZE BGR crop masked to the cap circle.
 
     Outside the circle is filled with BG_COLOUR.  If the crop region
     extends beyond the image boundary it is padded with BG_COLOUR.
 
     Returns:
-        crop — CROP_SIZE × CROP_SIZE BGR image
-        mask — CROP_SIZE × CROP_SIZE uint8 binary mask
+        crop -- CROP_SIZE x CROP_SIZE BGR image
+        mask -- CROP_SIZE x CROP_SIZE uint8 binary mask
     """
     h, w   = img.shape[:2]
     r_pad  = int(r_true * (1 + PADDING))
@@ -394,23 +393,23 @@ def make_masked_crop(
     return crop_n, mq
 
 
-# ── Public API ─────────────────────────────────────────────────────────────
+# -- Public API -------------------------------------------------------------
 
 
 def process_image(img: np.ndarray) -> dict:
     """
-    Full pipeline: BGR frame → masked cap crop.
+    Full pipeline: BGR frame -> masked cap crop.
 
     Args:
         img: HxWx3 uint8 BGR frame.
 
     Returns dict with keys:
-        status  — ``'ok'`` or ``'no_cap'``
-        crop    — CROP_SIZE × CROP_SIZE BGR image, or None
-        mask    — CROP_SIZE × CROP_SIZE uint8 mask, or None
-        centre  — ``(cx, cy)`` in full-image pixels, or None
-        r_true  — outer rim radius in full-image pixels, or None
-        ellipse — raw OpenCV ellipse tuple, or None
+        status  -- ``'ok'`` or ``'no_cap'``
+        crop    -- CROP_SIZE x CROP_SIZE BGR image, or None
+        mask    -- CROP_SIZE x CROP_SIZE uint8 mask, or None
+        centre  -- ``(cx, cy)`` in full-image pixels, or None
+        r_true  -- outer rim radius in full-image pixels, or None
+        ellipse -- raw OpenCV ellipse tuple, or None
     """
     result = dict(status='no_cap', crop=None, mask=None,
                   centre=None, r_true=None, ellipse=None)
@@ -423,7 +422,7 @@ def process_image(img: np.ndarray) -> dict:
     r_approx = int(max(MA, ma) / 2)
 
     # For low-saturation images (silver/metallic caps) the saturation-based rim
-    # finder cannot distinguish cap from bottle body — use gradient peaks instead.
+    # finder cannot distinguish cap from bottle body -- use gradient peaks instead.
     small_hsv = cv2.cvtColor(
         cv2.resize(img, (DETECT_SIZE, DETECT_SIZE), interpolation=cv2.INTER_AREA),
         cv2.COLOR_BGR2HSV,

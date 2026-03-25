@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 """
-anomaly — Bottle-cap anomaly detection package.
+anomaly -- Bottle-cap anomaly detection package.
 
 Modules
-───────
+-------
   cap_detection : detect bottle cap in a BGR frame, produce a masked crop
   augment       : randomised augmentation of cap crops (AugParams, augment_crop)
-  preprocess    : process_image / process_dir — crop + augment pipeline
-  detector      : AnomalyDetector — load calibration model and score images
+  preprocess    : process_image / process_dir -- crop + augment pipeline
+  detector      : AnomalyDetector -- load calibration model and score images
   features      : frozen ResNet-18 feature extraction
   pca           : PCA dimensionality reduction (pure NumPy)
   distribution  : Ledoit-Wolf covariance estimation and Mahalanobis scoring

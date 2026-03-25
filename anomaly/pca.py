@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Principal Component Analysis (PCA) for feature-space dimensionality reduction.
 
@@ -12,7 +11,7 @@ A ResNet-18 backbone trained on ImageNet encodes a rich vocabulary of visual
 concepts: animal fur, sky gradients, vehicle parts, text, and much more.
 When applied to bottle-cap images, most of those 512 feature dimensions encode
 concepts that are entirely irrelevant to date stamps.  These irrelevant
-dimensions have low variance across cap images — all caps look roughly the
+dimensions have low variance across cap images -- all caps look roughly the
 same along those axes.
 
 Low-variance dimensions are doubly harmful in Mahalanobis scoring:
@@ -22,7 +21,7 @@ Low-variance dimensions are doubly harmful in Mahalanobis scoring:
    still push the distance of a genuinely good cap above the threshold if its
    residual in that direction happens to be unlucky.
 
-2. **Ill-conditioning.** With n ≈ 100–500 calibration images and 512 features,
+2. **Ill-conditioning.** With n ~= 100-500 calibration images and 512 features,
    the sample covariance is rank-deficient; the low-variance dimensions
    contribute near-zero eigenvalues that destabilise the inverse.  Ledoit-Wolf
    shrinkage mitigates this but does not eliminate it.
@@ -34,64 +33,64 @@ dimensional, better-conditioned space.
 
 Mathematical Background
 -----------------------
-**Step 1 — Centering.**
-Subtract the training mean μ from every sample:
+**Step 1 -- Centering.**
+Subtract the training mean mu from every sample:
 
-    X_c = X − μ
+    X_c = X - mu
 
 This is required because PCA operates on the covariance structure, which is
 defined relative to the mean.
 
-**Step 2 — Covariance matrix.**
+**Step 2 -- Covariance matrix.**
 Compute the sample (unbiased) covariance matrix:
 
-    C = (1 / (N − 1)) · X_cᵀ X_c     ∈ ℝ^{d × d}
+    C = (1 / (N - 1)) * X_c^T X_c     in R^{d x d}
 
 C captures the pairwise linear relationships between the d feature dimensions.
 
-**Step 3 — Eigendecomposition.**
+**Step 3 -- Eigendecomposition.**
 Factorise C as:
 
-    C = V Λ Vᵀ
+    C = V Lambda V^T
 
-where the columns of V ∈ ℝ^{d × d} are the *principal components*
-(orthonormal eigenvectors of C) and Λ = diag(λ₁, λ₂, …, λ_d) contains the
+where the columns of V in R^{d x d} are the *principal components*
+(orthonormal eigenvectors of C) and Lambda = diag(lambda_1, lambda_2, ..., lambda_d) contains the
 corresponding eigenvalues in descending order.
 
-Each eigenvalue λᵢ equals the variance of the data projected onto the i-th
-principal component.  The eigenvectors are sorted so that λ₁ ≥ λ₂ ≥ … ≥ λ_d.
+Each eigenvalue lambda_i equals the variance of the data projected onto the i-th
+principal component.  The eigenvectors are sorted so that lambda_1 >= lambda_2 >= ... >= lambda_d.
 
 We use ``numpy.linalg.eigh`` instead of the general ``eig`` because C is
 symmetric positive semi-definite.  ``eigh`` exploits symmetry for faster,
 numerically more stable computation.  **Note:** ``eigh`` returns eigenvalues in
 *ascending* order, so we reverse them immediately after the call.
 
-**Step 4 — Component selection.**
+**Step 4 -- Component selection.**
 Select the top k principal components, where k is chosen by one of two
 criteria:
 
 * *Fixed count:*  k = n_components (user-specified).
 * *Variance threshold:*  choose the smallest k such that
 
-      Σᵢ₌₁ᵏ λᵢ / Σᵢ₌₁ᵈ λᵢ ≥ variance_threshold
+      sum_{i=1}^k lambda_i / sum_{i=1}^d lambda_i >= variance_threshold
 
-  The ratio λᵢ / Σλ is the *explained variance ratio* of component i.
+  The ratio lambda_i / Sigma*lambda is the *explained variance ratio* of component i.
 
-The retained projection matrix is W = V[:, :k]  ∈ ℝ^{d × k}.
+The retained projection matrix is W = V[:, :k]  in R^{d x k}.
 
-**Step 5 — Projection.**
-Map a new (possibly unseen) sample x ∈ ℝ^d into the k-dimensional subspace:
+**Step 5 -- Projection.**
+Map a new (possibly unseen) sample x in R^d into the k-dimensional subspace:
 
-    x_reduced = (x − μ) @ W     ∈ ℝ^k
+    x_reduced = (x - mu) @ W     in R^k
 
-The resulting vector x_reduced is the set of *scores* — the coordinates of x
+The resulting vector x_reduced is the set of *scores* -- the coordinates of x
 in the principal component basis.  Euclidean (and Mahalanobis) distances in
 this space are meaningful and stable.
 
 **Inverse transform (reconstruction).**
-Given a reduced vector z ∈ ℝ^k, the original-space reconstruction is:
+Given a reduced vector z in R^k, the original-space reconstruction is:
 
-    x̂ = z @ Wᵀ + μ
+    x^ = z @ W^T + mu
 
 This is exact when k = d and approximate (minimum reconstruction error)
 otherwise.
@@ -111,8 +110,8 @@ class PCA:
 
     Supports two component-selection strategies:
 
-    * ``n_components`` — retain exactly this many components.
-    * ``variance_threshold`` — retain the fewest components that together
+    * ``n_components`` -- retain exactly this many components.
+    * ``variance_threshold`` -- retain the fewest components that together
       explain at least this fraction of total variance (default: 0.95).
 
     If both are provided, ``n_components`` takes priority.
@@ -144,7 +143,7 @@ class PCA:
                 when ``n_components`` is set.  Default: 0.95.
         """
         if n_components is not None and n_components < 1:
-            raise ValueError(f"n_components must be ≥ 1, got {n_components}")
+            raise ValueError(f"n_components must be >= 1, got {n_components}")
         if variance_threshold is not None and not (0.0 < variance_threshold <= 1.0):
             raise ValueError(
                 f"variance_threshold must be in (0, 1], got {variance_threshold}"
@@ -172,11 +171,11 @@ class PCA:
         are retained as the projection matrix.
 
         Args:
-            X: Training data of shape ``(N, d)``.  N ≥ 2 is required to form
+            X: Training data of shape ``(N, d)``.  N >= 2 is required to form
                an unbiased covariance estimate.
 
         Returns:
-            self — for method chaining.
+            self -- for method chaining.
 
         Raises:
             ValueError: If N < 2 or if ``n_components`` exceeds d.
@@ -197,10 +196,10 @@ class PCA:
         self.mean_ = X.mean(axis=0)
         X_c = X - self.mean_
 
-        # Step 2: unbiased covariance  C ∈ ℝ^{d × d}
+        # Step 2: unbiased covariance  C in R^{d x d}
         C = (X_c.T @ X_c) / (n - 1)
 
-        # Step 3: eigendecompose — eigh is faster & more stable for symmetric matrices
+        # Step 3: eigendecompose -- eigh is faster & more stable for symmetric matrices
         # Returns eigenvalues in ASCENDING order; we reverse immediately.
         eigenvalues, eigenvectors = np.linalg.eigh(C)
         eigenvalues = eigenvalues[::-1].copy()       # descending
@@ -254,7 +253,7 @@ class PCA:
         Centers X using the training mean, then multiplies by the projection
         matrix W:
 
-            X_reduced = (X − μ) @ W
+            X_reduced = (X - mu) @ W
 
         Args:
             X: Data of shape ``(N, d)``.  Must have the same d as the training
@@ -293,7 +292,7 @@ class PCA:
 
         The reconstruction is:
 
-            x̂ = X_reduced @ Wᵀ + μ
+            x^ = X_reduced @ W^T + mu
 
         This is an exact inverse when k = d, and the minimum reconstruction-
         error approximation otherwise (by the Eckart-Young theorem).
@@ -314,9 +313,9 @@ class PCA:
 
         The explained variance ratio of component i is:
 
-            r_i = λᵢ / Σλ
+            r_i = lambda_i / Sigma*lambda
 
-        where λᵢ is the i-th retained eigenvalue and Σλ is the sum of all d
+        where lambda_i is the i-th retained eigenvalue and Sigma*lambda is the sum of all d
         eigenvalues (including discarded components).
 
         Returns:

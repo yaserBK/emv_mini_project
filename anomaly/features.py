@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Feature extraction module using a frozen ResNet-18 backbone.
 
@@ -40,7 +39,7 @@ def build_transform() -> transforms.Compose:
     Build the standard ImageNet preprocessing transform pipeline.
 
     The pipeline:
-      1. Resize to 224 × 224 (ResNet-18 expected input size).
+      1. Resize to 224 x 224 (ResNet-18 expected input size).
       2. Convert to a float32 tensor in [0, 1].
       3. Normalise with ImageNet channel mean and standard deviation.
 
@@ -76,7 +75,7 @@ def build_feature_extractor(device: torch.device) -> nn.Module:
                 (e.g. ``torch.device("cuda")`` or ``torch.device("cpu")``).
 
     Returns:
-        A frozen ``nn.Sequential`` mapping ``(B, 3, 224, 224) → (B, 512, 1, 1)``.
+        A frozen ``nn.Sequential`` mapping ``(B, 3, 224, 224) -> (B, 512, 1, 1)``.
     """
     logger.info("Loading pretrained ResNet-18 weights (ImageNet-1K)")
     backbone = models.resnet18(pretrained=True)  # pretrained=True: compat with torchvision 0.12.x (Jetson JetPack 4.6)
@@ -218,7 +217,7 @@ def extract_features(
 
             # Output shape: (B, 512, 1, 1)
             out = extractor(batch)
-            # Squeeze spatial dims → (B, 512)
+            # Squeeze spatial dims -> (B, 512)
             out = out.squeeze(-1).squeeze(-1)
             all_features.append(out.cpu().numpy())
 

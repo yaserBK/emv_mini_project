@@ -1,21 +1,20 @@
-# -*- coding: utf-8 -*-
 """
-augment.py — Image augmentation for bottle cap training data.
+augment.py -- Image augmentation for bottle cap training data.
 
-Provides randomised augmentation of 256×256 circle-masked cap crops.
+Provides randomised augmentation of 256x256 circle-masked cap crops.
 Each call to AugParams independently samples every parameter, so the
 joint distribution gives dense coverage near neutral with exponentially
 thinning probability toward extreme combinations.
 
 Augmentation distributions
-──────────────────────────
-  gamma        log-normal  μ=0, σ=0.30  → typically 0.55–1.82  (V channel)
-  saturation   log-normal  μ=0, σ=0.28  → typically 0.60–1.67  (S channel)
-  brightness   normal      μ=0, σ=12    → ±~24 additive luma shift
-  rotation     disabled    always 0°
-  skew         uniform     ±8°          (perspective tilt, two axes)
-  noise        half-normal σ=6          → 0–~18 std Gaussian pixel noise
-  blur         Bernoulli   p=0.25       → slight Gaussian blur (kernel 3 or 5)
+--------------------------
+  gamma        log-normal  mu=0, sigma=0.30  -> typically 0.55-1.82  (V channel)
+  saturation   log-normal  mu=0, sigma=0.28  -> typically 0.60-1.67  (S channel)
+  brightness   normal      mu=0, sigma=12    -> +/-~24 additive luma shift
+  rotation     disabled    always 0deg
+  skew         uniform     +/-8deg          (perspective tilt, two axes)
+  noise        half-normal sigma=6          -> 0-~18 std Gaussian pixel noise
+  blur         Bernoulli   p=0.25       -> slight Gaussian blur (kernel 3 or 5)
 """
 
 from typing import Tuple
@@ -30,23 +29,23 @@ class AugParams:
     """Draws and stores one complete set of random augmentation parameters."""
 
     def __init__(self, rng: np.random.Generator):
-        # Gamma: log-normal σ=0.30 → ~[0.55, 1.82], hard-clipped to [0.4, 2.5]
+        # Gamma: log-normal sigma=0.30 -> ~[0.55, 1.82], hard-clipped to [0.4, 2.5]
         self.gamma = float(np.clip(np.exp(rng.normal(0, 0.30)), 0.40, 2.50))
 
-        # Saturation scale: log-normal σ=0.28 → ~[0.60, 1.67]
+        # Saturation scale: log-normal sigma=0.28 -> ~[0.60, 1.67]
         self.sat_scale = float(np.clip(np.exp(rng.normal(0, 0.28)), 0.40, 2.50))
 
-        # Brightness shift: normal μ=0, σ=12, additive to V channel
+        # Brightness shift: normal mu=0, sigma=12, additive to V channel
         self.brightness = float(np.clip(rng.normal(0, 12), -40, 40))
 
         # Rotation: disabled
         self.rotation = 0.0
 
-        # Perspective skew: uniform ±8° on each axis
+        # Perspective skew: uniform +/-8deg on each axis
         self.skew_x = float(rng.uniform(-8, 8))
         self.skew_y = float(rng.uniform(-8, 8))
 
-        # Gaussian noise std: half-normal σ=6 → always non-negative
+        # Gaussian noise std: half-normal sigma=6 -> always non-negative
         self.noise_std = float(np.abs(rng.normal(0, 6)))
 
         # Blur: on with probability 0.25
@@ -142,7 +141,7 @@ def apply_blur(img: np.ndarray, p: AugParams) -> np.ndarray:
 
 
 def augment_crop(crop: np.ndarray, p: AugParams) -> np.ndarray:
-    """Apply the full augmentation chain (colour → geometry → noise → blur)."""
+    """Apply the full augmentation chain (colour -> geometry -> noise -> blur)."""
     aug = apply_colour(crop, p)
     aug = apply_geometry(aug, p, bg=BG_COLOUR)
     aug = apply_noise(aug, p)

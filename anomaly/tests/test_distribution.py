@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-Unit tests for anomaly.distribution — Ledoit-Wolf shrinkage and Mahalanobis distance.
+Unit tests for anomaly.distribution -- Ledoit-Wolf shrinkage and Mahalanobis distance.
 
 Tests are pure NumPy; no ML frameworks or external test fixtures are required.
 Run with:
@@ -59,7 +58,7 @@ class TestLedoitWolfShrinkage(unittest.TestCase):
 
     def test_shrinkage_happens_when_n_small(self):
         """
-        When n is much smaller than p, shrinkage should be substantial (α > 0).
+        When n is much smaller than p, shrinkage should be substantial (alpha > 0).
 
         With n=20 and p=50, the sample covariance is rank-deficient and the
         L-W estimator should blend it heavily toward the scaled identity.
@@ -72,7 +71,7 @@ class TestLedoitWolfShrinkage(unittest.TestCase):
         self.assertGreater(alpha, 0.0, "Expected positive shrinkage for n << p")
 
         # The shrunk matrix must lie strictly between S and the scaled identity:
-        # shrunk = (1-α)·S + α·μI  ⟹  componentwise closer to μI than S is.
+        # shrunk = (1-alpha)*S + alpha*muI  =>  componentwise closer to muI than S is.
         p = S.shape[0]
         mu = np.trace(S) / p
         target = mu * np.eye(p)
@@ -89,16 +88,16 @@ class TestLedoitWolfShrinkage(unittest.TestCase):
     def test_no_shrinkage_when_n_large(self):
         """
         When n >> p and the true covariance is NOT proportional to the identity,
-        α should approach 0.
+        alpha should approach 0.
 
-        Key: the data must be non-spherical (Σ ≠ cI) so that the shrinkage
-        target F = (tr(S)/p)I differs meaningfully from S (i.e. δ > 0).
-        When Σ = cI the target IS the truth, making the L-W formula degenerate
-        (both numerator and denominator → 0 at the same rate), so α is
+        Key: the data must be non-spherical (Sigma != cI) so that the shrinkage
+        target F = (tr(S)/p)I differs meaningfully from S (i.e. delta > 0).
+        When Sigma = cI the target IS the truth, making the L-W formula degenerate
+        (both numerator and denominator -> 0 at the same rate), so alpha is
         undefined in that limit.
 
-        Here we use Σ = diag(1,4,9,16,25), giving δ = tr(Σ²) − tr(Σ)²/p = 10.
-        With n=10 000, β̄ ≈ p(p+1)/n ≈ 3×10⁻³, so α* ≈ 0.003/10 ≈ 3×10⁻⁴.
+        Here we use Sigma = diag(1,4,9,16,25), giving delta = tr(Sigma^2) - tr(Sigma)^2/p = 10.
+        With n=10 000, beta_bar ~= p(p+1)/n ~= 3*10^-3, so alpha* ~= 0.003/10 ~= 3*10^-4.
         """
         rng = _rng(4)
         n, p = 10_000, 5
@@ -109,7 +108,7 @@ class TestLedoitWolfShrinkage(unittest.TestCase):
         self.assertLess(
             alpha,
             0.05,
-            f"Expected near-zero shrinkage for n >> p with non-spherical Σ, got α={alpha:.4f}",
+            f"Expected near-zero shrinkage for n >> p with non-spherical Sigma, got alpha={alpha:.4f}",
         )
 
     def test_result_is_symmetric(self):
@@ -135,13 +134,13 @@ class TestLedoitWolfShrinkage(unittest.TestCase):
 
     def test_isotropic_input_output_still_accurate(self):
         """
-        When the true covariance IS proportional to the identity (Σ = σ²I),
-        the target F = (tr(S)/p)I ≈ σ²I equals the truth.  Both α = 0 and
-        α = 1 produce the same result (σ²I), so the L-W formula may return
-        any α — the value is undefined/degenerate in this limit.
+        When the true covariance IS proportional to the identity (Sigma = sigma^2I),
+        the target F = (tr(S)/p)I ~= sigma^2I equals the truth.  Both alpha = 0 and
+        alpha = 1 produce the same result (sigma^2I), so the L-W formula may return
+        any alpha -- the value is undefined/degenerate in this limit.
 
         What matters is that the OUTPUT covariance is still a good estimator
-        of σ²I regardless of α.  We verify this by checking that the
+        of sigma^2I regardless of alpha.  We verify this by checking that the
         off-diagonal entries of the shrunk covariance are small.
         """
         rng = _rng(7)
@@ -164,7 +163,7 @@ class TestLedoitWolfShrinkage(unittest.TestCase):
 
     def test_shrinkage_blends_sample_and_identity(self):
         """
-        The shrunk covariance must equal (1-α)·S + α·μ·I exactly.
+        The shrunk covariance must equal (1-alpha)*S + alpha*mu*I exactly.
         """
         rng = _rng(8)
         X = _make_centred(rng, 30, 20)
@@ -175,7 +174,7 @@ class TestLedoitWolfShrinkage(unittest.TestCase):
         expected = (1 - alpha) * S + alpha * mu * np.eye(p)
         np.testing.assert_allclose(
             shrunk, expected, atol=1e-10,
-            err_msg="Shrunk covariance does not match (1-α)S + α·μ·I"
+            err_msg="Shrunk covariance does not match (1-alpha)S + alpha*mu*I"
         )
 
 
@@ -198,10 +197,10 @@ class TestMahalanobisDistance(unittest.TestCase):
 
     def test_identity_covariance_equals_euclidean(self):
         """
-        When Σ⁻¹ = I, Mahalanobis distance must equal Euclidean distance.
+        When Sigma^-1 = I, Mahalanobis distance must equal Euclidean distance.
 
         This follows directly from the definition:
-            d_M(x) = √[(x−μ)ᵀ I (x−μ)] = √[‖x−μ‖²] = ‖x−μ‖₂
+            d_M(x) = sqrt[(x-mu)^T I (x-mu)] = sqrt[||x-mu||^2] = ||x-mu||_2
         """
         rng = _rng(11)
         d = 32
@@ -215,7 +214,7 @@ class TestMahalanobisDistance(unittest.TestCase):
         self.assertAlmostEqual(maha, euclidean, places=8)
 
     def test_distance_is_non_negative(self):
-        """Mahalanobis distance is always ≥ 0."""
+        """Mahalanobis distance is always >= 0."""
         rng = _rng(12)
         d = 10
         mean = rng.standard_normal(d)
@@ -232,8 +231,8 @@ class TestMahalanobisDistance(unittest.TestCase):
         """
         Points equidistant from the mean on opposite sides have the same distance.
 
-        Specifically, d_M(μ + v) == d_M(μ − v) because the Mahalanobis distance
-        depends only on ‖v‖_{Σ⁻¹}, not the direction of v.
+        Specifically, d_M(mu + v) == d_M(mu - v) because the Mahalanobis distance
+        depends only on ||v||_{Sigma^-1}, not the direction of v.
         """
         rng = _rng(13)
         d = 8
@@ -283,10 +282,10 @@ class TestMahalanobisDistance(unittest.TestCase):
 
     def test_diagonal_covariance_normalisation(self):
         """
-        With a diagonal covariance Σ = diag(σ₁², …, σ_d²), the Mahalanobis
+        With a diagonal covariance Sigma = diag(sigma_1^2, ..., sigma_d^2), the Mahalanobis
         distance should equal the root-sum of squared standardised deviations:
 
-            d_M(x) = √[ Σᵢ ((xᵢ − μᵢ) / σᵢ)² ]
+            d_M(x) = sqrt[ Sigma_i ((x_i - mu_i) / sigma_i)^2 ]
         """
         rng = _rng(16)
         d = 8
@@ -320,7 +319,7 @@ class TestFitDistribution(unittest.TestCase):
             self.assertIn(key, result, f"Missing key: {key}")
 
     def test_threshold_ordering(self):
-        """p90 ≤ p95 ≤ p99."""
+        """p90 <= p95 <= p99."""
         rng = _rng(21)
         features = rng.standard_normal((80, 16)).astype(np.float32)
         result = fit_distribution(features)

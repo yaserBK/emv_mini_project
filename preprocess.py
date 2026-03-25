@@ -1,39 +1,38 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-preprocess.py — Detect, crop, and augment bottle cap images.
+preprocess.py -- Detect, crop, and augment bottle cap images.
 
 Runs the cap detection pipeline on one image or a directory of images,
-producing circle-masked 256×256 crops and optionally augmented variants
+producing circle-masked 256x256 crops and optionally augmented variants
 for use as input to build_distribution.py.
 
-Usage — single image, crop only
-────────────────────────────────
+Usage -- single image, crop only
+--------------------------------
     python preprocess.py --image cap.jpg --out-dir crops/
 
-Usage — single image, crop + augmentations
-──────────────────────────────────────────
+Usage -- single image, crop + augmentations
+------------------------------------------
     python preprocess.py --image cap.jpg --out-dir crops/ --n-aug 10
 
-Usage — directory, full dataset generation
-──────────────────────────────────────────
+Usage -- directory, full dataset generation
+------------------------------------------
     python preprocess.py --images-dir raw/ --out-dir dataset/ --n-aug 12
 
-Usage — reproducible run
-─────────────────────────
+Usage -- reproducible run
+-------------------------
     python preprocess.py --images-dir raw/ --out-dir dataset/ --n-aug 12 --seed 42
 
 Output (directory mode)
-────────────────────────
+------------------------
     dataset/
-        train/                  ← augmented crops (training)
-        val/                    ← augmented crops (validation)
+        train/                  <- augmented crops (training)
+        val/                    <- augmented crops (validation)
         metadata.json
         contact_sheet_train.jpg
         contact_sheet_val.jpg
 
 Exit codes
-──────────
+----------
     0  Success.
     1  No cap detected (single image mode).
     2  Fatal error (bad arguments, unreadable input, etc.).
@@ -68,7 +67,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--n-aug", type=int, default=0, metavar="N",
-        help="Augmented variants to generate per image (default: 0 — crop only).",
+        help="Augmented variants to generate per image (default: 0 -- crop only).",
     )
     parser.add_argument(
         "--val-frac", type=float, default=0.15, metavar="FLOAT",
@@ -89,7 +88,7 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     out_dir = Path(args.out_dir)
 
-    # ── Directory mode ────────────────────────────────────────────────────────
+    # -- Directory mode --------------------------------------------------------
     if args.images_dir:
         images_dir = Path(args.images_dir)
         if not images_dir.is_dir():
@@ -107,7 +106,7 @@ def main(argv=None) -> int:
         )
         return 0 if metadata else 2
 
-    # ── Single image mode ─────────────────────────────────────────────────────
+    # -- Single image mode -----------------------------------------------------
     image_path = Path(args.image)
     if not image_path.is_file():
         print(f"\nERROR: Image file not found: '{image_path}'\n", file=sys.stderr)

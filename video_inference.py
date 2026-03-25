@@ -1,34 +1,33 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-video_inference.py — Real-time anomaly detection on a webcam or video file.
+video_inference.py -- Real-time anomaly detection on a webcam or video file.
 
 Opens a video source, detects and crops the bottle cap in each frame,
 scores the crop against the calibration model, and displays the result:
-  GREEN border/label  → GOOD (within normal distribution)
-  RED border/label    → ANOMALOUS (Mahalanobis distance exceeds threshold)
-  YELLOW border/label → NO CAP detected in this frame
+  GREEN border/label  -> GOOD (within normal distribution)
+  RED border/label    -> ANOMALOUS (Mahalanobis distance exceeds threshold)
+  YELLOW border/label -> NO CAP detected in this frame
 
 Press Q or Escape to quit.
 
-Usage — default webcam
-───────────────────────
+Usage -- default webcam
+-----------------------
     python video_inference.py --calibration distribution.pkl
 
-Usage — specific camera index
-──────────────────────────────
+Usage -- specific camera index
+------------------------------
     python video_inference.py --calibration distribution.pkl --source 1
 
-Usage — video file
-───────────────────
+Usage -- video file
+-------------------
     python video_inference.py --calibration distribution.pkl --source ./recording.mp4
 
-Usage — change threshold / score every N frames
-─────────────────────────────────────────────────
+Usage -- change threshold / score every N frames
+-------------------------------------------------
     python video_inference.py --calibration distribution.pkl --threshold 95 --every 3
 
 Exit codes
-──────────
+----------
     0  Stream ended normally.
     2  Fatal error (bad arguments, missing file, camera failure, etc.).
 """
@@ -120,7 +119,7 @@ def _resolve_source(source_str: str):
         return source_str
 
 
-# ── Overlay rendering ─────────────────────────────────────────────────────────
+# -- Overlay rendering ---------------------------------------------------------
 
 
 def _draw_overlay(
@@ -177,7 +176,7 @@ def _draw_no_cap_overlay(frame: np.ndarray, fps: float) -> np.ndarray:
     return frame
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# -- Main ----------------------------------------------------------------------
 
 
 def main(argv=None) -> int:
@@ -230,7 +229,7 @@ def main(argv=None) -> int:
                     "frame=%d  status=%s  dist=%s",
                     frame_idx,
                     last_result['status'],
-                    f"{last_result['distance']:.4f}" if last_result['distance'] else "—",
+                    f"{last_result['distance']:.4f}" if last_result['distance'] else "--",
                 )
 
             t_now = time.perf_counter()

@@ -1,16 +1,15 @@
-# -*- coding: utf-8 -*-
 """
 Multivariate Gaussian distribution fitting and Mahalanobis anomaly scoring.
 
 This module implements three tightly related pieces of mathematics:
 
-1. **Ledoit-Wolf shrinkage** — a regularised estimator for high-dimensional
+1. **Ledoit-Wolf shrinkage** -- a regularised estimator for high-dimensional
    covariance matrices implemented entirely in NumPy (no scikit-learn).
 
-2. **Mahalanobis distance** — the anomaly score for a feature vector against
+2. **Mahalanobis distance** -- the anomaly score for a feature vector against
    the fitted normal distribution.
 
-3. **Distribution fitting** — the end-to-end calibration pipeline that
+3. **Distribution fitting** -- the end-to-end calibration pipeline that
    combines the above and computes percentile thresholds.
 
 All computations are purely NumPy; no external ML libraries are required.
@@ -36,12 +35,12 @@ def ledoit_wolf_shrinkage(X: np.ndarray) -> Tuple[np.ndarray, float]:
     Background
     ----------
     When the number of samples *n* is comparable to the feature dimensionality
-    *p* (here n ≈ 100–500 and p = 512), the maximum-likelihood (sample)
+    *p* (here n ~= 100-500 and p = 512), the maximum-likelihood (sample)
     covariance matrix
 
-        S = (1/n) Xᵀ X
+        S = (1/n) X^T X
 
-    is an unreliable estimator of the true covariance Σ.  Its eigenvalues
+    is an unreliable estimator of the true covariance Sigma.  Its eigenvalues
     exhibit the *Marchenko-Pastur* dispersion: too-small eigenvalues are
     pushed toward zero and too-large ones are inflated.  The resulting matrix
     is often ill-conditioned or even singular, making its inverse numerically
@@ -50,54 +49,54 @@ def ledoit_wolf_shrinkage(X: np.ndarray) -> Tuple[np.ndarray, float]:
     **Ledoit-Wolf shrinkage** regularises S by blending it with a structured,
     well-conditioned *target matrix* F.  Here we use the scaled-identity target:
 
-        F = μ I,    μ = tr(S) / p
+        F = mu I,    mu = tr(S) / p
 
-    which replaces each eigenvalue of S with the mean eigenvalue μ.  The
+    which replaces each eigenvalue of S with the mean eigenvalue mu.  The
     shrinkage estimator is a convex combination:
 
-        Σ̂ = (1 − α) S + α F
+        Sigma_hat = (1 - alpha) S + alpha F
 
-    where α ∈ [0, 1] is the *shrinkage intensity* (also called the shrinkage
+    where alpha in [0, 1] is the *shrinkage intensity* (also called the shrinkage
     coefficient or regularisation parameter):
 
-    - α = 0 → use S unchanged (no regularisation)
-    - α = 1 → use F = μ I (full regularisation)
-    - 0 < α < 1 → intermediate blend
+    - alpha = 0 -> use S unchanged (no regularisation)
+    - alpha = 1 -> use F = mu I (full regularisation)
+    - 0 < alpha < 1 -> intermediate blend
 
     Optimal Shrinkage Intensity
     ---------------------------
-    The theoretically optimal α minimises the expected squared Frobenius
-    loss E[‖Σ̂ − Σ‖²_F].  Ledoit & Wolf (2004) derived a *consistent
-    plug-in estimator* that requires no knowledge of Σ:
+    The theoretically optimal alpha minimises the expected squared Frobenius
+    loss E[||Sigma_hat - Sigma||^2_F].  Ledoit & Wolf (2004) derived a *consistent
+    plug-in estimator* that requires no knowledge of Sigma:
 
-        α* = β̄ / δ̄,   clamped to [0, 1]
+        alpha* = beta_bar / delta_bar,   clamped to [0, 1]
 
     where the two quantities are:
 
-        δ̄ = ‖S − F‖²_F = tr(S²) − tr(S)² / p
-        β̄ = (1/n²) Σᵢ ‖xᵢ xᵢᵀ − S‖²_F
+        delta_bar = ||S - F||^2_F = tr(S^2) - tr(S)^2 / p
+        beta_bar = (1/n^2) Sigma_i ||x_i x_i^T - S||^2_F
 
-    Efficient Computation of β̄
+    Efficient Computation of beta_bar
     ---------------------------
-    The naive O(n p²) summation over outer products is avoided using the
+    The naive O(n p^2) summation over outer products is avoided using the
     identity (derived by expanding the Frobenius norm):
 
-        Σᵢ ‖xᵢ xᵢᵀ − S‖²_F = Σᵢ ‖xᵢ‖⁴ − n · tr(S²)
+        Sigma_i ||x_i x_i^T - S||^2_F = Sigma_i ||x_i||^4 - n * tr(S^2)
 
     **Proof:**
 
-        ‖xᵢ xᵢᵀ − S‖²_F
-          = tr((xᵢ xᵢᵀ)²) − 2 tr(S · xᵢ xᵢᵀ) + tr(S²)
-          = ‖xᵢ‖⁴ − 2 xᵢᵀ S xᵢ + tr(S²)
+        ||x_i x_i^T - S||^2_F
+          = tr((x_i x_i^T)^2) - 2 tr(S * x_i x_i^T) + tr(S^2)
+          = ||x_i||^4 - 2 x_i^T S x_i + tr(S^2)
 
-    Summing over i = 1…n and using
-    Σᵢ xᵢᵀ S xᵢ = tr(S Σᵢ xᵢ xᵢᵀ) = tr(S · nS) = n tr(S²):
+    Summing over i = 1...n and using
+    Sigma_i x_i^T S x_i = tr(S Sigma_i x_i x_i^T) = tr(S * nS) = n tr(S^2):
 
-        Σᵢ ‖xᵢ xᵢᵀ − S‖²_F = Σᵢ ‖xᵢ‖⁴ − n tr(S²)  ∎
+        Sigma_i ||x_i x_i^T - S||^2_F = Sigma_i ||x_i||^4 - n tr(S^2)  
 
     Therefore:
 
-        β̄ = [Σᵢ ‖xᵢ‖⁴ − n · tr(S²)] / n²
+        beta_bar = [Sigma_i ||x_i||^4 - n * tr(S^2)] / n^2
 
     This reduces to two O(np) operations: computing per-sample squared norms
     and summing their squares.
@@ -127,25 +126,25 @@ def ledoit_wolf_shrinkage(X: np.ndarray) -> Tuple[np.ndarray, float]:
     S = X.T @ X / n
 
     trace_S = float(np.trace(S))
-    trace_S2 = float(np.sum(S ** 2))  # ‖S‖²_F = tr(S²) for symmetric S
+    trace_S2 = float(np.sum(S ** 2))  # ||S||^2_F = tr(S^2) for symmetric S
 
     # Target scaling: mean eigenvalue of S
     mu = trace_S / p
 
-    # δ̄ = ‖S − μI‖²_F = tr(S²) − tr(S)²/p
+    # delta_bar = ||S - muI||^2_F = tr(S^2) - tr(S)^2/p
     delta = trace_S2 - trace_S ** 2 / p
 
     if delta < 1e-12:
         # S is already proportional to identity; shrinkage has no effect
-        logger.debug("Ledoit-Wolf: delta ≈ 0, no shrinkage applied.")
+        logger.debug("Ledoit-Wolf: delta ~= 0, no shrinkage applied.")
         return S.copy(), 0.0
 
-    # Efficient computation of β̄
-    sq_norms = np.sum(X ** 2, axis=1)          # (n,) — squared L2 norm of each row
-    sum_fourth_order = float(np.sum(sq_norms ** 2))   # Σᵢ ‖xᵢ‖⁴
+    # Efficient computation of beta_bar
+    sq_norms = np.sum(X ** 2, axis=1)          # (n,) -- squared L2 norm of each row
+    sum_fourth_order = float(np.sum(sq_norms ** 2))   # Sigma_i ||x_i||^4
     beta_bar = (sum_fourth_order / n ** 2) - (trace_S2 / n)
 
-    # Clamp to [0, 1]: negative β̄ can arise from numerical noise
+    # Clamp to [0, 1]: negative beta_bar can arise from numerical noise
     alpha = float(np.clip(beta_bar / delta, 0.0, 1.0))
 
     shrunk = (1.0 - alpha) * S + alpha * mu * np.eye(p, dtype=X.dtype)
@@ -172,18 +171,18 @@ def mahalanobis_distance(
 
     Definition
     ----------
-    Given a feature vector **x**, distribution mean **μ**, and inverse
-    covariance **Σ⁻¹**, the Mahalanobis distance is:
+    Given a feature vector **x**, distribution mean **mu**, and inverse
+    covariance **Sigma^-1**, the Mahalanobis distance is:
 
-        d(x) = √[ (x − μ)ᵀ Σ⁻¹ (x − μ) ]
+        d(x) = sqrt[ (x - mu)^T Sigma^-1 (x - mu) ]
 
     Geometric Interpretation
     ------------------------
     Mahalanobis distance is a *whitened* Euclidean distance.  The
-    transformation v = Σ^{−1/2} (x − μ) maps the ellipsoidal level sets of
-    the multivariate Gaussian into spherical shells, so that d(x) = ‖v‖₂.
+    transformation v = Sigma^{-1/2} (x - mu) maps the ellipsoidal level sets of
+    the multivariate Gaussian into spherical shells, so that d(x) = ||v||_2.
 
-    Compared to plain Euclidean distance ‖x − μ‖₂, the key differences are:
+    Compared to plain Euclidean distance ||x - mu||_2, the key differences are:
 
     * **Variance normalisation**: each feature dimension is divided by its
       standard deviation.  A feature with high natural variance contributes
@@ -194,7 +193,7 @@ def mahalanobis_distance(
       before measuring distance.  A deviation that is merely a consequence
       of known feature correlations is not penalised.
 
-    * **When Σ = I** (identity covariance), Mahalanobis distance reduces
+    * **When Sigma = I** (identity covariance), Mahalanobis distance reduces
       exactly to Euclidean distance.
 
     These properties make Mahalanobis distance especially suitable for
@@ -207,7 +206,7 @@ def mahalanobis_distance(
         inv_cov: Inverse covariance matrix of shape ``(d, d)``.
 
     Returns:
-        Non-negative float — the Mahalanobis distance.
+        Non-negative float -- the Mahalanobis distance.
     """
     diff = x - mean
     return float(np.sqrt(max(0.0, float(diff @ inv_cov @ diff))))
@@ -226,10 +225,10 @@ def mahalanobis_distances(
 
     The computation exploits the identity:
 
-        dᵢ² = diffᵢᵀ Σ⁻¹ diffᵢ = Σⱼ (diffᵢ Σ⁻¹)ⱼ · diffᵢⱼ
+        d_i^2 = diff_i^T Sigma^-1 diff_i = Sigma_j (diff_i Sigma^-1)_j * diff_ij
 
     which is computed as ``np.sum((D @ inv_cov) * D, axis=1)`` where
-    ``D = X − mean``.
+    ``D = X - mean``.
 
     Args:
         X: Feature matrix of shape ``(N, d)``.
@@ -256,12 +255,12 @@ def fit_distribution(features: np.ndarray) -> Dict:
     This is the calibration step.  It performs the following operations in
     order:
 
-    1. Compute the **sample mean** μ ∈ ℝ⁵¹².
-    2. Centre the data: X_c = features − μ.
-    3. Fit the **Ledoit-Wolf shrinkage covariance** Σ̂ from X_c.
-    4. Compute the **inverse** Σ̂⁻¹ (well-conditioned thanks to shrinkage).
+    1. Compute the **sample mean** mu in R^512.
+    2. Centre the data: X_c = features - mu.
+    3. Fit the **Ledoit-Wolf shrinkage covariance** Sigma_hat from X_c.
+    4. Compute the **inverse** Sigma_hat^-1 (well-conditioned thanks to shrinkage).
     5. Compute **Mahalanobis distances** for all calibration samples against
-       (μ, Σ̂⁻¹) to characterise the range of normal distances.
+       (mu, Sigma_hat^-1) to characterise the range of normal distances.
     6. Compute **percentile thresholds** at the 90th, 95th, and 99th
        percentiles of the calibration distances.
 
@@ -270,11 +269,11 @@ def fit_distribution(features: np.ndarray) -> Dict:
     A threshold at the *k*-th percentile means that *k*% of the known-good
     calibration images fall below that threshold.  If the calibration set is
     representative, the expected false-positive rate on future good images is
-    roughly (100 − k)%.
+    roughly (100 - k)%.
 
-    - p90 threshold → ~10 % expected false-positive rate
-    - p95 threshold → ~5 % expected false-positive rate
-    - p99 threshold → ~1 % expected false-positive rate
+    - p90 threshold -> ~10 % expected false-positive rate
+    - p95 threshold -> ~5 % expected false-positive rate
+    - p99 threshold -> ~1 % expected false-positive rate
 
     Args:
         features: ``np.ndarray`` of shape ``(N, 512)``.  Each row is the
@@ -300,7 +299,7 @@ def fit_distribution(features: np.ndarray) -> Dict:
     Raises:
         ValueError: If *features* is empty.
         np.linalg.LinAlgError: If the shrunk covariance matrix cannot be
-            inverted (should not happen with L-W shrinkage and n ≥ 2).
+            inverted (should not happen with L-W shrinkage and n >= 2).
     """
     n, d = features.shape
 
@@ -310,7 +309,7 @@ def fit_distribution(features: np.ndarray) -> Dict:
     if n < 10:
         logger.warning(
             "Only %d calibration image(s) provided.  The distribution estimate "
-            "may be unreliable.  Aim for at least 50–100 good images for "
+            "may be unreliable.  Aim for at least 50-100 good images for "
             "stable results.",
             n,
         )
@@ -328,9 +327,9 @@ def fit_distribution(features: np.ndarray) -> Dict:
     X_centered = features - mean
 
     # Step 3: Ledoit-Wolf shrinkage covariance
-    logger.info("Fitting Ledoit-Wolf covariance (n=%d, d=%d) …", n, d)
+    logger.info("Fitting Ledoit-Wolf covariance (n=%d, d=%d) ...", n, d)
     shrunk_cov, alpha = ledoit_wolf_shrinkage(X_centered)
-    logger.info("Shrinkage intensity α = %.4f", alpha)
+    logger.info("Shrinkage intensity alpha = %.4f", alpha)
 
     # Step 4: invert
     try:
@@ -353,13 +352,13 @@ def fit_distribution(features: np.ndarray) -> Dict:
     }
 
     logger.info(
-        "Calibration distances — mean: %.3f, std: %.3f, max: %.3f",
+        "Calibration distances -- mean: %.3f, std: %.3f, max: %.3f",
         float(cal_distances.mean()),
         float(cal_distances.std()),
         float(cal_distances.max()),
     )
     logger.info(
-        "Thresholds — p90: %.3f, p95: %.3f, p99: %.3f",
+        "Thresholds -- p90: %.3f, p95: %.3f, p99: %.3f",
         thresholds["90"], thresholds["95"], thresholds["99"],
     )
 

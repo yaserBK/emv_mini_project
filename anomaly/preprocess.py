@@ -1,23 +1,22 @@
-# -*- coding: utf-8 -*-
 """
-preprocess.py — Bottle cap detection, cropping, and augmentation pipeline.
+preprocess.py -- Bottle cap detection, cropping, and augmentation pipeline.
 
 Provides the implementation used by the top-level preprocess.py script.
 Can also be imported directly when building custom dataset generation workflows.
 
 Typical usage
-─────────────
+-------------
   from anomaly.preprocess import process_image, process_dir
 
-  # Single image — base crop only
+  # Single image -- base crop only
   results = process_image(bgr)
   if results:
-      crop = results[0]['crop']   # 256×256 BGR, circle-masked
+      crop = results[0]['crop']   # 256x256 BGR, circle-masked
 
-  # Single image — base crop + 10 augmented variants
+  # Single image -- base crop + 10 augmented variants
   results = process_image(bgr, n_aug=10)
 
-  # Directory — full dataset generation with train/val split
+  # Directory -- full dataset generation with train/val split
   metadata = process_dir('images/', 'dataset/', n_aug=12, val_frac=0.15, seed=42)
 """
 
@@ -53,11 +52,11 @@ def process_image(
     Returns:
         List of dicts.  Empty list if no cap is detected.
         Each dict contains:
-          crop       — CROP_SIZE × CROP_SIZE BGR image
-          mask       — CROP_SIZE × CROP_SIZE uint8 binary mask
-          centre     — (cx, cy) in full-image pixels
-          r_true     — outer rim radius in full-image pixels
-          aug_params — AugParams instance, or None for the base crop
+          crop       -- CROP_SIZE x CROP_SIZE BGR image
+          mask       -- CROP_SIZE x CROP_SIZE uint8 binary mask
+          centre     -- (cx, cy) in full-image pixels
+          r_true     -- outer rim radius in full-image pixels
+          aug_params -- AugParams instance, or None for the base crop
     """
     result = _detect_and_crop(bgr)
     if result['status'] != 'ok':
@@ -103,10 +102,10 @@ def process_dir(
     Output structure::
 
         output_dir/
-            train/                  ← augmented crops for training
-            val/                    ← augmented crops for validation
-            metadata.json           ← seed, params, per-image split assignments
-            contact_sheet_train.jpg ← thumbnail grid (visual inspection)
+            train/                  <- augmented crops for training
+            val/                    <- augmented crops for validation
+            metadata.json           <- seed, params, per-image split assignments
+            contact_sheet_train.jpg <- thumbnail grid (visual inspection)
             contact_sheet_val.jpg
 
     Args:
@@ -136,15 +135,15 @@ def process_dir(
     for d in ('train', 'val'):
         (output_dir / d).mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'─' * 60}")
+    print(f"\n{'-' * 60}")
     print(f"  Preprocess")
-    print(f"{'─' * 60}")
+    print(f"{'-' * 60}")
     print(f"  Source images : {len(sources)}")
     print(f"  Augs per image: {n_aug}")
     print(f"  Val fraction  : {val_frac:.0%}")
     print(f"  Seed          : {seed}")
     print(f"  Output        : {output_dir}")
-    print(f"{'─' * 60}\n")
+    print(f"{'-' * 60}\n")
 
     metadata: Dict = {
         'seed':     seed,
@@ -240,13 +239,13 @@ def process_dir(
         sheet = make_contact_sheet(val_thumbs, cols=12, tile=128)
         cv2.imwrite(str(output_dir / 'contact_sheet_val.jpg'), sheet)
 
-    print(f"\n{'─' * 60}")
+    print(f"\n{'-' * 60}")
     print(f"  Done.")
-    print(f"  Train : {len(metadata['train'])}  →  {output_dir}/train/")
-    print(f"  Val   : {len(metadata['val'])}  →  {output_dir}/val/")
+    print(f"  Train : {len(metadata['train'])}  ->  {output_dir}/train/")
+    print(f"  Val   : {len(metadata['val'])}  ->  {output_dir}/val/")
     if metadata['failed']:
         print(f"\n  Failed to detect cap in: {metadata['failed']}")
-    print(f"{'─' * 60}\n")
+    print(f"{'-' * 60}\n")
 
     return metadata
 

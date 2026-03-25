@@ -5,12 +5,12 @@ Click and drag to draw a bounding box over the stamp region.
 Saves all annotations to stamp_annotations.json on exit.
 
 Controls:
-  Click + drag  — draw bbox
-  SPACE or D    — confirm current bbox and move to next image
-  R             — redo current image (clear bbox)
-  S             — skip image (no stamp / can't see it)
-  B             — go back to previous image
-  Q or ESC      — quit and save progress
+  Click + drag  -- draw bbox
+  SPACE or D    -- confirm current bbox and move to next image
+  R             -- redo current image (clear bbox)
+  S             -- skip image (no stamp / can't see it)
+  B             -- go back to previous image
+  Q or ESC      -- quit and save progress
 
 Usage:
   cd to your project root, then:
@@ -26,13 +26,13 @@ import glob
 import os
 from pathlib import Path
 
-# ── Config ────────────────────────────────────────────────────────────────
+# -- Config ----------------------------------------------------------------
 DISPLAY_SIZE  = 700      # window size (image is scaled to fit)
 BBOX_COLOUR   = (0, 220, 255)
 CONFIRM_COLOUR= (0, 255, 80)
 ANNOT_FILE    = "stamp_annotations.json"
 
-# ── State ─────────────────────────────────────────────────────────────────
+# -- State -----------------------------------------------------------------
 drawing    = False
 ix, iy     = -1, -1
 fx, fy     = -1, -1
@@ -168,11 +168,11 @@ def run(img_dir, annot_file):
                 if confirmed_bbox is not None:
                     orig_bbox = scale_bbox_to_original(confirmed_bbox, scale)
                     annotations[fname] = list(orig_bbox)
-                    print(f"  ✓ {fname}: {orig_bbox}")
+                    print(f"  OK {fname}: {orig_bbox}")
                     idx += 1
                     break
                 else:
-                    print("  No bbox drawn — draw one first")
+                    print("  No bbox drawn -- draw one first")
 
             elif key == ord('r'):                    # redo
                 confirmed_bbox = None
@@ -186,7 +186,7 @@ def run(img_dir, annot_file):
 
             elif key == ord('s'):                    # skip
                 annotations[fname] = "skip"
-                print(f"  — {fname}: skipped")
+                print(f"  -- {fname}: skipped")
                 idx += 1
                 break
 
@@ -208,7 +208,7 @@ def run(img_dir, annot_file):
 def _save(annotations, annot_file):
     with open(annot_file, 'w') as f:
         json.dump(annotations, f, indent=2)
-    print(f"Saved {len(annotations)} annotations → {annot_file}")
+    print(f"Saved {len(annotations)} annotations -> {annot_file}")
 
 
 if __name__ == "__main__":

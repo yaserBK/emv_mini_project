@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-build_distribution.py — Build an anomaly detection distribution from known-good crops.
+build_distribution.py -- Build an anomaly detection distribution from known-good crops.
 
 Takes a directory of known-good cropped bottle-cap images (produced by
 preprocess.py), extracts ResNet-18 features, optionally reduces
@@ -9,27 +8,27 @@ dimensionality via PCA, fits a multivariate Gaussian with Ledoit-Wolf
 shrinkage, and saves the result as a calibration .pkl file for use with
 inference.py and video_inference.py.
 
-Usage — default (PCA retaining 95% variance)
-─────────────────────────────────────────────
+Usage -- default (PCA retaining 95% variance)
+---------------------------------------------
     python build_distribution.py --images-dir crops/train/ --output distribution.pkl
 
-Usage — retain 99% variance
-─────────────────────────────
+Usage -- retain 99% variance
+-----------------------------
     python build_distribution.py --images-dir crops/train/ --output distribution.pkl \\
         --pca-variance 0.99
 
-Usage — fixed component count
-──────────────────────────────
+Usage -- fixed component count
+------------------------------
     python build_distribution.py --images-dir crops/train/ --output distribution.pkl \\
         --pca-components 64
 
-Usage — no PCA (full 512-dim space)
-────────────────────────────────────
+Usage -- no PCA (full 512-dim space)
+------------------------------------
     python build_distribution.py --images-dir crops/train/ --output distribution.pkl \\
         --no-pca
 
 Exit codes
-──────────
+----------
     0  Success.
     1  Fatal error (no images, no detections, etc.).
 """
@@ -126,7 +125,7 @@ def main(argv=None) -> int:
         device = torch.device(args.device)
         torch.zeros(1).to(device)
     except (RuntimeError, AssertionError) as exc:
-        logger.warning("Device '%s' unavailable (%s) — falling back to CPU.", args.device, exc)
+        logger.warning("Device '%s' unavailable (%s) -- falling back to CPU.", args.device, exc)
         device = torch.device("cpu")
 
     image_paths = find_images(images_dir)
@@ -135,7 +134,7 @@ def main(argv=None) -> int:
         return 1
     if len(image_paths) < 10:
         logger.warning(
-            "Only %d image(s) found. Recommend at least 50–100 for reliable results.",
+            "Only %d image(s) found. Recommend at least 50-100 for reliable results.",
             len(image_paths),
         )
 
@@ -172,7 +171,7 @@ def main(argv=None) -> int:
             "pca_variance_explained": float(cumulative[-1]),
         }
         logger.info(
-            "PCA: %d → %d dimensions (%.1f%% variance)",
+            "PCA: %d -> %d dimensions (%.1f%% variance)",
             FEATURE_DIM, pca.n_components_, cumulative[-1] * 100,
         )
 
@@ -210,11 +209,11 @@ def main(argv=None) -> int:
     print()
     if pca_data["pca_enabled"]:
         print("  PCA              : enabled")
-        print(f"  PCA dims         : {FEATURE_DIM} → {pca_data['pca_n_components']}")
+        print(f"  PCA dims         : {FEATURE_DIM} -> {pca_data['pca_n_components']}")
         print(f"  PCA variance     : {pca_data['pca_variance_explained'] * 100:.1f}% retained")
     else:
         print(f"  PCA              : disabled (full {FEATURE_DIM}-dim)")
-    print(f"  L-W shrinkage α  : {model['shrinkage_alpha']:.4f}")
+    print(f"  L-W shrinkage alpha  : {model['shrinkage_alpha']:.4f}")
     print()
     print("  Mahalanobis distances (calibration set):")
     print(f"    mean : {cal_dist.mean():.4f}")
