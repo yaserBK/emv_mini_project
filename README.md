@@ -51,7 +51,7 @@ emv_mini_project/
     tests/
       test_distribution.py
       test_pca.py
-  Notebooks/               ← exploratory notebooks
+  research/                ← exploratory notebooks and annotation tools
   anomaly_detection/
     dataset/               ← training image dataset
 ```
