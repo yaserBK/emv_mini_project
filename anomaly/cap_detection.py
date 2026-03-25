@@ -49,8 +49,7 @@ SAT_GREY_THRESHOLD = 25  # mean saturation below this → use gradient rim finde
 
 # ── Stage 1a: normalise ────────────────────────────────────────────────────
 
-
-def _normalise_fast(img: np.ndarray) -> np.ndarray:
+def normalise_fast(img: np.ndarray) -> np.ndarray:
     """
     Resize to DETECT_SIZE, apply conditional gamma lift for dark images,
     then CLAHE on the V channel.  Returns BGR at DETECT_SIZE × DETECT_SIZE.
@@ -72,7 +71,7 @@ def _normalise_fast(img: np.ndarray) -> np.ndarray:
 # ── Stage 1b: blob detection ───────────────────────────────────────────────
 
 
-def _blob_detect_fast(
+def blob_detect_fast(
     norm_small: np.ndarray,
     img_area_small: int,
 ) -> Optional[tuple]:
@@ -132,7 +131,7 @@ def _blob_detect_fast(
 # ── Stage 1b fallback: global Hough ───────────────────────────────────────
 
 
-def _hough_global(norm_small: np.ndarray, area_s: int) -> Optional[tuple]:
+def hough_global(norm_small: np.ndarray, area_s: int) -> Optional[tuple]:
     """
     Global HoughCircles on grayscale — fallback for low-saturation images where
     colour-based blob detection finds nothing (e.g. silver/metallic caps on
@@ -188,17 +187,17 @@ def find_cap(
     h, w  = img.shape[:2]
     scale = h / DETECT_SIZE
 
-    norm_s = _normalise_fast(img)
+    norm_s = normalise_fast(img)
     hs, ws = norm_s.shape[:2]
     area_s = hs * ws
-    ell_s  = _blob_detect_fast(norm_s, area_s)
+    ell_s  = blob_detect_fast(norm_s, area_s)
 
     if ell_s is None:
         raw_s = cv2.resize(img, (DETECT_SIZE, DETECT_SIZE), interpolation=cv2.INTER_AREA)
-        ell_s = _blob_detect_fast(raw_s, area_s)
+        ell_s = blob_detect_fast(raw_s, area_s)
 
     if ell_s is None:
-        ell_s = _hough_global(norm_s, area_s)
+        ell_s = hough_global(norm_s, area_s)
 
     if ell_s is None:
         return None
@@ -259,7 +258,7 @@ def find_rim_radius(
     cx_s, cy_s = cx * sx, cy * sx
     r_s        = r_approx * sx
 
-    norm_s = _normalise_fast(img)
+    norm_s = normalise_fast(img)
     hsv    = cv2.cvtColor(norm_s, cv2.COLOR_BGR2HSV)
     sat    = hsv[..., 1]
     val    = hsv[..., 2]
@@ -297,7 +296,7 @@ def find_rim_radius(
 # ── Stage 2b: gradient rim finder (low-saturation fallback) ───────────────
 
 
-def _rim_radius_gradient(
+def rim_radius_gradient(
     img: np.ndarray,
     cx: float,
     cy: float,
@@ -312,7 +311,7 @@ def _rim_radius_gradient(
     walker which fails when cap and background are both low-saturation.
     """
     h0, w0     = img.shape[:2]
-    norm_s     = _normalise_fast(img)
+    norm_s     = normalise_fast(img)
     hs, ws     = norm_s.shape[:2]
     sx         = ws / w0
     cx_s, cy_s = cx * sx, cy * sx
@@ -429,7 +428,7 @@ def process_image(img: np.ndarray) -> dict:
         cv2.COLOR_BGR2HSV,
     )
     if small_hsv[..., 1].mean() < SAT_GREY_THRESHOLD:
-        r_true = _rim_radius_gradient(img, cx, cy, r_approx)
+        r_true = rim_radius_gradient(img, cx, cy, r_approx)
     else:
         r_true = find_rim_radius(img, cx, cy, r_approx)
 
