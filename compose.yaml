@@ -1,0 +1,77 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# emv_mini_project · Docker Compose
+#
+# Prerequisites on the Jetson Nano (run once after flashing JetPack 4.6.1):
+#   1. Install Docker and the NVIDIA container runtime:
+#        sudo apt-get install -y docker.io
+#        sudo usermod -aG docker $USER  && newgrp docker
+#        # Add the NVIDIA container runtime repo for Ubuntu 18.04 / aarch64:
+#        distribution=ubuntu18.04
+#        curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+#        curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list \
+#          | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+#        sudo apt-get update && sudo apt-get install -y nvidia-docker2
+#        sudo systemctl restart docker
+#   2. Grant Docker access to the X11 display (add to ~/.bashrc for persistence):
+#        xhost +local:docker
+#
+# Common commands:
+#   docker compose up video                   # live webcam anomaly detection
+#   docker compose run --rm inference         # batch-score /data/val/
+#   docker compose run --rm build             # fit calibration from /data/train/
+#   docker compose run --rm preprocess        # crop + augment raw images
+# ──────────────────────────────────────────────────────────────────────────────
+name: emv-anomaly
+
+# Shared config applied to every service via YAML anchors
+x-base: &base
+  image: emv-anomaly
+  build: .
+  runtime: nvidia               # requires NVIDIA Container Toolkit
+  environment:
+    DISPLAY: ${DISPLAY:-:0}             # X11 display for cv2.imshow
+    NVIDIA_VISIBLE_DEVICES: all
+    NVIDIA_DRIVER_CAPABILITIES: compute,video,graphics,utility
+  volumes:
+    - /tmp/.X11-unix:/tmp/.X11-unix     # X11 socket for GUI window
+    - ./models:/models                  # calibration .pkl files
+    - ./data:/data                      # image dataset
+
+services:
+
+  # ── Live webcam / video-file scoring ───────────────────────────────────────
+  video:
+    <<: *base
+    devices:
+      - /dev/video0:/dev/video0         # default webcam; add /dev/video1 etc. as needed
+    command: >
+      video_inference.py
+      --calibration /models/distribution.pkl
+
+  # ── Batch image scoring ─────────────────────────────────────────────────────
+  inference:
+    <<: *base
+    command: >
+      inference.py
+      --calibration /models/distribution.pkl
+      --images-dir  /data/val/
+      --threshold   99
+
+  # ── Fit calibration model from training crops ───────────────────────────────
+  build:
+    <<: *base
+    command: >
+      build_distribution.py
+      --images-dir /data/train/
+      --output     /models/distribution.pkl
+      --device     cuda
+
+  # ── Detect caps, crop, and augment raw images ───────────────────────────────
+  preprocess:
+    <<: *base
+    command: >
+      preprocess.py
+      --images-dir /data/raw/
+      --out-dir    /data/
+      --n-aug      12
+      --seed       42
