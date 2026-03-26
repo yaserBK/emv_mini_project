@@ -51,6 +51,7 @@ except ImportError:
     )
     sys.exit(2)
 
+from anomaly.cap_detection import make_masked_crop
 from anomaly.detector import AnomalyDetector
 
 logging.basicConfig(
@@ -103,6 +104,13 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument(
         "--every", type=int, default=1, metavar="N",
         help="Score every N-th frame; reuse previous result in between (default: 1).",
+    )
+    parser.add_argument(
+        "--smooth", type=float, default=0.3, metavar="ALPHA",
+        help=(
+            "EMA weight for new cap centre/radius measurements "
+            "(0=maximum smoothing, 1=no smoothing, default: 0.3)."
+        ),
     )
     parser.add_argument(
         "--log-level", default="WARNING",
@@ -211,10 +219,15 @@ def main(argv=None) -> int:
         "Press Q or Escape to quit.\n"
     )
 
-    frame_idx         = 0
-    last_result       = None
-    frame_times: collections.deque = collections.deque(maxlen=_FPS_SMOOTHING)
-    t_prev = time.perf_counter()
+    frame_idx    = 0
+    last_result  = None
+    frame_times  = collections.deque(maxlen=_FPS_SMOOTHING)
+    t_prev       = time.perf_counter()
+
+    smooth_alpha = args.smooth
+    _smooth_cx   = None
+    _smooth_cy   = None
+    _smooth_r    = None
 
     try:
         while True:
@@ -231,15 +244,27 @@ def main(argv=None) -> int:
                     last_result['status'],
                     f"{last_result['distance']:.4f}" if last_result['distance'] else "—",
                 )
+                if last_result['status'] == 'ok':
+                    cx, cy = last_result['centre']
+                    r = float(last_result['r_true'])
+                    if _smooth_cx is None:
+                        _smooth_cx, _smooth_cy, _smooth_r = float(cx), float(cy), r
+                    else:
+                        _smooth_cx = smooth_alpha * cx + (1 - smooth_alpha) * _smooth_cx
+                        _smooth_cy = smooth_alpha * cy + (1 - smooth_alpha) * _smooth_cy
+                        _smooth_r  = smooth_alpha * r  + (1 - smooth_alpha) * _smooth_r
+                else:
+                    _smooth_cx = _smooth_cy = _smooth_r = None
 
             t_now = time.perf_counter()
             frame_times.append(t_now - t_prev)
             t_prev = t_now
             fps = len(frame_times) / sum(frame_times) if frame_times else 0.0
 
-            if last_result and last_result['status'] == 'ok':
+            if last_result and last_result['status'] == 'ok' and _smooth_cx is not None:
+                crop, _ = make_masked_crop(frame, _smooth_cx, _smooth_cy, int(_smooth_r))
                 display = _draw_overlay(
-                    last_result['crop'].copy(),
+                    crop,
                     last_result['distance'],
                     detector.threshold_value,
                     fps,
