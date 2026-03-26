@@ -103,11 +103,39 @@ def parse_args(argv=None)  :
         help="Score every N-th frame; reuse previous result in between (default: 1).",
     )
     parser.add_argument(
+        "--csi", action="store_true",
+        help="Use Jetson CSI camera via nvarguscamerasrc GStreamer pipeline.",
+    )
+    parser.add_argument(
+        "--width", type=int, default=1280,
+        help="CSI capture width in pixels (default: 1280).",
+    )
+    parser.add_argument(
+        "--height", type=int, default=720,
+        help="CSI capture height in pixels (default: 720).",
+    )
+    parser.add_argument(
+        "--fps", type=int, default=30,
+        help="CSI capture framerate (default: 30).",
+    )
+    parser.add_argument(
         "--log-level", default="WARNING",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging verbosity (default: WARNING).",
     )
     return parser.parse_args(argv)
+
+
+def _csi_pipeline(sensor_id=0, width=1280, height=720, fps=30):
+    return (
+        "nvarguscamerasrc sensor-id={} ! "
+        "video/x-raw(memory:NVMM), width={}, height={}, format=NV12, framerate={}/1 ! "
+        "nvvidconv ! "
+        "video/x-raw, format=BGRx ! "
+        "videoconvert ! "
+        "video/x-raw, format=BGR ! "
+        "appsink"
+    ).format(sensor_id, width, height, fps)
 
 
 def _resolve_source(source_str ):
@@ -189,8 +217,17 @@ def main(argv=None)  :
         print(f"\nERROR: {exc}\n", file=sys.stderr)
         return 2
 
-    source = _resolve_source(args.source)
-    cap    = cv2.VideoCapture(source)
+    if args.csi:
+        source = _csi_pipeline(
+            sensor_id=int(args.source),
+            width=args.width,
+            height=args.height,
+            fps=args.fps,
+        )
+        cap = cv2.VideoCapture(source, cv2.CAP_GSTREAMER)
+    else:
+        source = _resolve_source(args.source)
+        cap    = cv2.VideoCapture(source)
     if not cap.isOpened():
         print(
             f"\nERROR: Cannot open video source '{args.source}'.\n"
