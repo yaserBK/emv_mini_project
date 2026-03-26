@@ -1,0 +1,34 @@
+# Version control
+.git/
+.gitignore
+
+# Python cache and build artefacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments / uv
+.venv/
+.uv/
+
+# Large data — mount at runtime via compose.yaml volumes instead
+dataset/
+data/
+models/*.pkl
+
+# Development / research (not needed in the image)
+research/
+anomaly_detection/
+
+# Tests
+anomaly/tests/
+
+# Editor and OS artefacts
+.DS_Store
+*.swp
+.idea/
+.vscode/
+*.log
