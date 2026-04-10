@@ -48,8 +48,12 @@
 \maketitle
 
 \begin{abstract}
-Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum 
-\end{abstract}
+This paper presents a single-class anomaly detection system for real-time inspection of date stamps on milk bottle caps, deployed on an NVIDIA Jetson Nano embedded platform. The approach requires only known-good samples for training, making it well-suited to manufacturing contexts where defect samples are scarce or defect modes are not known in advance.
+
+An image processing pipeline isolates the cap region from video frames, and the resulting crop is encoded as a 512-dimension feature vector by a frozen ResNet-18 CNN. PCA reduces this to 181 features while retaining 95\% of variance, after which a multivariable Gaussian distribution is fitted using Ledoit-Wolf covariance regularisation to handle the limited amount of training data. Anomaly scoring uses Mahalanobis distance against the fitted distribution.
+
+Evaluated on a custom dataset of 395 known-good and 10 defective caps, the system achieves an AUROC of 0.993 and 100\% anomaly recall at the $p_{99}$ threshold, with a false-positive rate of 3.5\%. The full video inference pipeline runs at approximately 20\,FPS on the Jetson Nano within a 10\,W power budget.
+\end{abstract}    
 
 \begin{IEEEkeywords}
 Anomaly detection, date codes, ResNet, embedded, machine vision, Mahalanobis, Ledoit-Wolf, CNN, image processing
@@ -73,7 +77,7 @@ The pipeline combines a frozen, pre-trained convolutional image recognition netw
 
 \section{Background Research}
 \subsection{Dataset}
-As existing datasets did not provide adequate coverage of the font, font size, and date stamp shape of the particular production line targetted by this project, a custom dataset was built by capturing images of bottle caps coming from the production line and preprocessing to give consistent size, crop, and orientation to the images in the dataset. The images were then sent through an image processing pipeline which isolates the bottle cap from the image, at which point the images were passed to the distribution training script. The dataset consists of 1,025 augmented 256x256 crops of known good bottle caps, derived from the preprocessed images and expanded with photometric and geometric augmentations (gamma, saturation, brightness, and Gaussian noise).
+As existing datasets did not provide adequate coverage of the font, font size, and date stamp shape of the particular production line targetted by this project, a custom dataset was built by capturing images of bottle caps coming from the production line and preprocessing to give consistent size, crop, and orientation to the images in the dataset. The images were then sent through an image processing pipeline which isolates the bottle cap from the image, at which point the images were passed to the distribution training script. The dataset consists of 1025 augmented 256x256 crops of known good bottle caps, derived from the preprocessed images and expanded with photometric and geometric augmentations (gamma, saturation, brightness, and Gaussian noise).
 
 Validation uses 395 known good and 57 intentionally defective crops. Because one-class learning only requires normal examples during training, collecting labelled anomalies is needed only for validation, which reduced the data acquisition burden significantly, which is a common motivation for anomaly-detection approaches in modern industrial inspection~\cite{bergmann2019mvtec}.
 
@@ -91,7 +95,7 @@ much the features vary and correlate with one another. The covariance matrix act
 
 Reliably estimating $\boldsymbol{\Sigma}$ requires many multiples more samples than there are dimensions. With a 512-dimension feature vector coming from ResNet, and a limited training dataset, the covariance matrix $\Sigma$ becomes ``ill-conditioned'', where its inverse becomes numerically unstable and fluctuates wildly with small changes to $\Sigma$. The inverse of $\Sigma$ is required for calculating the Mahalanobis distance, which is how the whole system compares input samples to the distribution. A system needs to be implemented to resolve the numerical instability without increasing the size of the training dataset by several orders of magnitude.
 
-Ledoit--Wolf shrinkage~\cite{ledoit2004well} addresses this by blending $\mathbf{S}$, the ill-conditioned covariance matrix, with a scaled identity matrix:
+Ledoit-Wolf shrinkage~\cite{ledoit2004well} addresses this by blending $\mathbf{S}$, the ill-conditioned covariance matrix, with a scaled identity matrix:
 \begin{equation}
     \hat{\boldsymbol{\Sigma}} = (1-\alpha)\mathbf{S} +
     \alpha\,\frac{\operatorname{tr}(\mathbf{S})}{d}\,\mathbf{I}
@@ -100,7 +104,7 @@ Here $\mathbf{S}$ is the raw covariance matrix, $d$ is the feature dimensionalit
 
 The resulting ``shrunken'' covariance matrix $\hat{\Sigma}$ isn't necessarily correct but \emph{is} stable, in exchange for being slightly biased towards the identity matrix, which is acceptable because the entries which are not along the diagonal of the covariance matrix are typically the ones which are least reliable.
 
-The Ledoit--Wolf method computes the optimal $\alpha$ analytically. Their paper shows that even though the true covariance is unknown, the error between $\hat{\Sigma}$ and the true covariance matrix can still be estimated analytically, and the optimal value of $\alpha$ can be calculated from these values only. This eliminates the need for cross-validation as is typically seen in neural network training, which would require a ridiculous number of validations due to the number of dimensions and the comparatively small size of the dataset, increasing training time by several orders of magnitude. This is the same regularisation strategy used in PaDiM~\cite{defard2021padim} and related embedding-based methods of anomaly detection, specifically to avoid that issue.
+The Ledoit-Wolf method computes the optimal $\alpha$ analytically. Their paper shows that even though the true covariance is unknown, the error between $\hat{\Sigma}$ and the true covariance matrix can still be estimated analytically, and the optimal value of $\alpha$ can be calculated from these values only. This eliminates the need for cross-validation as is typically seen in neural network training, which would require a ridiculous number of validations due to the number of dimensions and the comparatively small size of the dataset, increasing training time by several orders of magnitude. This is the same regularisation strategy used in PaDiM~\cite{defard2021padim} and related embedding-based methods of anomaly detection, specifically to avoid that issue.
 
 \subsection{Mahalanobis Distance Scoring}
 At inference, each cropped and preprocessed image is scored by its Mahalanobis distance to the training data distribution:
@@ -115,8 +119,54 @@ regularised covariance matrix.
 
 Mahalanobis distance is scale and correlation invariant. When the distribution being measured against is Gaussian, the Mahalanobis distance has a chi-squared distribution. This means interpretable percentile-based thresholds can be defined (e.g. $p_{90}$, $p_{95}$, $p_{99}$) which correspond to the probability that a good sample would have a distance greater than the Nth percentile of the training dataset. The approach is very much classical, dating back to 1936~\cite{mahalanobis1936generalised}, but it has proven more than suitable for dealing with single-class inspection problems like anomaly detection when dealing with large feature vectors from deep neural networks~\cite{lee2018simple,roth2022towards}.
 
+% ============
+
 \section{Methodology}
-\subsection{Dataset Processing}
+
+The pipeline is comprised of four standalone modules: preprocessing (\texttt{preprocess.py}), training (\texttt{build\_distribution.py}), static inference (\texttt{inference.py}), and real-time inference (\texttt{video\_inference.py}).
+
+The preprocessing and static inference modules are both used in the training module, which builds the distribution, and the real-time inference pipeline which takes input from a camera and runs anomaly detection on the input feed.
+
+\paragraph{Cap localisation and preprocessing}
+Raw images are passed through the cascaded bottle cap detection pipeline in \texttt{cap\_detection.py}. The image is first downsampled to $500\times500$\,px and illumination is normalised: if mean brightness falls below a threshold, a gamma lift ($\gamma=0.4$) is applied, followed by CLAHE on the HSV data's value channel (clip limit 2.0, $8\times8$ tile grid).
+
+Blob detection then operates in the HSV saturation space. Otsu's method determines an initial threshold, which is tried alongside fixed fallbacks (55, 65, 75, 85). For each threshold, a binary saturation mask is produced and cleaned with morphological close then open operations. Candidate contours are filtered by area (3-55\% of image) and circularity, and the best is selected by a score combining circularity, proximity to the image centre, and log-area.
+
+The true outer rim radius is then measured. For colour caps, a radial saturation walk samples 36 evenly-spaced angles outward from the detected centre, marking the last pixel still on the cap surface. For low-saturation caps a gradient-magnitude edge finder is used instead: the pixel with the highest Sobel gradient magnitude within a tight radial window is taken as the edge for each angle.
+
+Finally, a $256\times256$ circular masked crop is extracted: the cap region is squared off, padded by 8\% of the rim radius, resized to $256\times256$, and all pixels outside the circle mask are filled with black.
+
+\paragraph{Stage 1b: Data augmentation}
+Each source image produces 12 augmented variants from \texttt{augment.py}. Augmentation parameters are decided independently for each variant, so the distribution of augmentations gives dense coverage near no transform and exponentially thinning probability toward extreme combinations, rather than a grid of fixed presets which would add in a large number of extreme transforms unlikely to match real-world inputs.
+
+The colour augmentations operate in HSV space. Gamma correction, clipped to $[0.4, 2.5]$) models variation in overall exposure. Saturation scaling accounts for differences in colour rendering between cameras and environment lighting. An additive brightness shift covers small changes in ambient illumination e.g. due to sunlight.
+
+Gaussian pixel noise (half-normal, $\sigma=6$) and occasional mild Gaussian blur (25\% probability, kernel size 3 or 5) model sensor noise and slight defocus respectively. Together these augmentations expand the training set from 171 source images to 1025.
+
+\paragraph{Stage 2: Calibration}
+The 1025 known-good crops are fed through the frozen ResNet-18 backbone. The 512-dimensional global average-pooling output is retained, yielding a feature matrix of shape $(1025, 512)$.
+
+PCA is then applied to the resulting data. The mean is subtracted and the data is projected onto the principal components that together explain 95\% of variance, retaining 181 of 512 dimensions for the training dataset. This improves the conditioning of the subsequent covariance estimate and also reduces inference latency.
+
+Ledoit-Wolf shrinkage is applied to the projected features to produce the regularised covariance matrix $\hat{\boldsymbol{\Sigma}}$. The precision matrix $\hat{\boldsymbol{\Sigma}}^{-1}$ is precomputed and stored alongside $\boldsymbol{\mu}$, the PCA projection, and the percentile thresholds $p_{90}$, $p_{95}$, $p_{99}$ derived from the calibration-set Mahalanobis distances. The resulting distribution (\texttt{distribution.pkl}) is stored on disk.
+
+\paragraph{Stage 3: Static inference}
+\texttt{inference.py} accepts a single image or a directory and scores each crop against the loaded calibration model. The cap localisation pipeline runs first; the resulting crop is projected through the stored PCA basis, the Mahalanobis distance computed, and the result compared against the chosen percentile threshold ($p_{90}$, $p_{95}$, or $p_{99}$, defaulting to $p_{99}$).
+
+For each image, the raw Mahalanobis distance, the threshold value, and the margin (distance minus threshold) are printed. A positive margin indicates an anomaly; the magnitude indicates how far beyond the threshold the sample lies.
+
+\paragraph{Stage 4: Real-time video inference}
+\texttt{video\_inference.py} captures frames from a webcam or video file and runs the full detection and scoring pipeline on each frame. The cap localisation pipeline, feature extraction, PCA projection, and Mahalanobis scoring are all executed per-frame, with the result displayed in real time.
+
+Detection noise causes the estimated cap centre and radius to jitter slightly between frames, which would produce a visually unstable crop even when the cap is stationary. An exponential moving average smooths the position and radius over time to help reduce this effect:
+\begin{equation}
+    \hat{x}_t = \alpha\, x_t + (1-\alpha)\, \hat{x}_{t-1}
+\end{equation}
+where $x_t$ is the current raw measurement and $\alpha=0.7$ by default. Lower $\alpha$ gives a smoother but more lagged estimate; higher $\alpha$ responds faster but retains more jitter. When no cap is detected in a frame the smoothed state is reset, so stale positions do not persist when a cap moves out of frame, e.g. on a conveyor belt.
+
+The display renders a coloured border and a semi-transparent banner showing the Mahalanobis distance, threshold, margin, and live FPS. The border and verdict label are green for a good cap, red for an anomaly, and yellow if no cap was detected in the frame.
+
+% =============
 
 \section{Testing and Results}
 \subsection{Training and Calibration Performance}
@@ -136,19 +186,19 @@ Validation anomalous samples           & 10 \\
 Anomaly detection recall ($p_{99}$)    & 100\% (10/10) \\
 False-positive rate ($p_{99}$)         & 3.5\% (14/395) \\
 AUROC                                  & 0.993 \\
-Ledoit--Wolf shrinkage $\alpha$        & 0.0081 \\
+Ledoit-Wolf shrinkage $\alpha$        & 0.0081 \\
 PCA components retained                & 181 of 512 (95\% variance) \\
 \hline
 \end{tabular}
 \end{table}
 
-The training dataset Mahalanobis distances have a mean of 12.69 and a standard deviation of 1.71 (range of 8.50--22.42), with thresholds of  $p_{90} = 14.96$, $p_{95} = 15.80$, $p_{99} = 17.60$. The Ledoit--Wolf shrinkage coefficient $\alpha=0.0081$ is very small, indicating that after PCA reduction ($512\rightarrow181$ dimensions, $n=1025$) the sample covariance is already well-conditioned and requires only minimal regularisation. This indicates that PCA was effective in helping stabilise the covariance matrix by reducing the number of dimensions present, and it also indicates that the number of dataset augmentations applied to the base dataset was appropriate, generating sufficient samples to prevent an ill-conditioned covariance matrix.
+The training dataset Mahalanobis distances have a mean of 12.69 and a standard deviation of 1.71 (range of 8.50-22.42), with thresholds of  $p_{90} = 14.96$, $p_{95} = 15.80$, $p_{99} = 17.60$. The Ledoit-Wolf shrinkage coefficient $\alpha=0.0081$ is very small, indicating that after PCA reduction ($512\rightarrow181$ dimensions, $n=1025$) the sample covariance is already well-conditioned and requires only minimal regularisation. This indicates that PCA was effective in helping stabilise the covariance matrix by reducing the number of dimensions present, and it also indicates that the number of dataset augmentations applied to the base dataset was appropriate, generating sufficient samples to prevent an ill-conditioned covariance matrix.
 
 \subsection{Embedded Performance}
 
 \begin{table}[h]
 \centering
-\caption{Inference performance on NVIDIA Jetson Nano.}
+\caption{Inference performance on NVIDIA Jetson Nano}
 \label{tab:embedded}
 \renewcommand{\arraystretch}{1.5}
 \small
@@ -193,7 +243,7 @@ Cap localisation pipeline
 Feature extraction \& calibration
 (\texttt{features.py}, \texttt{build\_distribution.py})
 & Yaser \\
-Statistical model: Ledoit--Wolf + Mahalanobis
+Statistical model: Ledoit-Wolf + Mahalanobis
 (\texttt{distribution.py})
 & Seán \\
 PCA module (\texttt{pca.py})
