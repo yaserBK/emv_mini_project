@@ -87,6 +87,10 @@ deployment where memory and GPU power are high for an embedded system, but not h
 \section{Testing and Results}
 
 \section{Conclusion}
+This project demonstrates that a frozen pre-trained CNN model, combined with an appropriate one-class statistical model (e.g Mahalanobis scoring, and Ledoit-Wolf covariance regularisation), results in a practical and production-deployable anomaly detection system, in this case for industrial date stamp inspection. The approach requires only ``normal'' samples for training, and is tolerant of small datasets through both covariance regularisation and dataset augmentation. The system achieves real-time inference within the power
+and memory budget of the NVIDIA Jetson Nano at an appropriate frame rate for this application.
+
+The main limitations include sensitivity to distribution shift (e.g. significant changes in lighting), and poor recall for highly localised defects (e.g. a single missing digit) that produce only a small shift in the average-pooling layer of the CNN.
 
 \section{Individual Contributions}
 The report was written in equal proportions by both authors.
@@ -122,7 +126,55 @@ Data augmentation (\texttt{augment.py})
 \end{tabular}
 \end{table}
 
-%\bibliographystyle{IEEEtran}
-%\bibliography{references}
+\begin{thebibliography}{9}
+
+\bibitem{he2016resnet}
+K.~He, X.~Zhang, S.~Ren, and J.~Sun,
+``Deep Residual Learning for Image Recognition,''
+in \textit{Proc. IEEE CVPR}, pp.~770--778, 2016.
+
+\bibitem{ledoit2004well}
+O.~Ledoit and M.~Wolf,
+``A Well-Conditioned Estimator for Large-Dimensional Covariance Matrices,''
+\textit{Journal of Multivariate Analysis}, vol.~88, no.~2, pp.~365--411, 2004.
+
+\bibitem{mahalanobis1936generalised}
+P.~C.~Mahalanobis,
+``On the Generalised Distance in Statistics,''
+\textit{Proceedings of the National Institute of Sciences of India},
+vol.~2, no.~1, pp.~49--55, 1936.
+
+\bibitem{defard2021padim}
+T.~Defard, A.~Setkov, A.~Loesch, and R.~Audigier,
+``PaDiM: A Patch Distribution Modelling Framework for Anomaly Detection and
+Localisation,''
+in \textit{Proc. ICPR Workshops}, pp.~475--489, 2021.
+
+\bibitem{bergmann2019mvtec}
+P.~Bergmann, M.~Fauser, D.~Sattlegger, and C.~Steger,
+``MVTec AD -- A Comprehensive Real-World Dataset for Unsupervised Anomaly
+Detection,''
+in \textit{Proc. IEEE CVPR}, pp.~9592--9600, 2019.
+
+\bibitem{roth2022towards}
+K.~Roth, L.~Pemula, J.~Zepeda, B.~Schölkopf, T.~Brox, and P.~Gehler,
+``Towards Total Recall in Industrial Anomaly Detection,''
+in \textit{Proc. IEEE CVPR}, pp.~14318--14328, 2022.
+
+\bibitem{lee2018simple}
+K.~Lee, K.~Lee, H.~Lee, and J.~Shin,
+``A Simple Unified Framework for Detecting Out-of-Distribution Samples and
+Adversarial Attacks,''
+in \textit{Proc. NeurIPS}, pp.~7167--7177, 2018.
+
+\bibitem{ballard1981hough}
+D.~H.~Ballard,
+``Generalizing the Hough Transform to Detect Arbitrary Shapes,''
+\textit{Pattern Recognition}, vol.~13, no.~2, pp.~111--122, 1981.
+
+\end{thebibliography}
+
+\bibliographystyle{IEEEtran}
+
 
 \end{document}
