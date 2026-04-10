@@ -48,11 +48,11 @@
 \maketitle
 
 \begin{abstract}
-Lorem Ipsum
+Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum Lorem Ipsum 
 \end{abstract}
 
 \begin{IEEEkeywords}
-Lorem, Ipsum
+Anomaly detection, date codes, ResNet, embedded, machine vision, Mahalanobis, Ledoit-Wolf, CNN, image processing
 \end{IEEEkeywords}
 
 \section{Introduction}
@@ -80,6 +80,40 @@ Validation uses 395 known good and 57 intentionally defective crops. Because one
 \subsection{Feature Extraction}
 Collecting sufficient data to train a deep network from scratch is impractical for this purpose as previously outlined. Transfer learning from the ImageNet-pretrained~\cite{imagenet} ResNet-18 model covers a sufficient amount of visual features without domain-specific supervised training. The final fully-connected layer (the head) is removed from the model, exposing the penultimate layer (a global average pooling layer) output: A 512-dimension feature vector describing the input image. The model backbone is frozen throughout, so no GPU memory is consumed by gradients and inference is very lightweight as the model does not back propagate. This is important for Jetson
 deployment where memory and GPU power are high for an embedded system, but not high enough to support back propagation and real-time inference at the same time. ResNet-18 has been shown to produce strong one-class baselines in prior work~\cite{roth2022towards,defard2021padim}, and also has seen extensive use on the Jetson Nano in open-source projects, so it was an obvious choice for this project. Producing 512 features for each image, it provides an extremely detailed description of each image, which can then be used to build an accurate distribution of known good bottle cap prints.
+
+\subsection{PCA Dimensionality Reduction}
+
+Not all 512 ResNet features are informative for bottle-cap stamps. A pure-NumPy incremental PCA projection is applied to the dataset after running it through ResNet but prior to building the distribution. Sufficient principal components are kept to explain 95\% of training-set variance by default. This improves the covariance estimate that follows this step and also reduces inference compute which raises FPS. This ultimately boosts the accuracy of the system by discarding data which represents noise both in training and inference. This is consistent with the analysis of Defard~et~al.~\cite{defard2021padim}'s research into Patch Distribution Modelling, an alternative approach to the same methods used in this project.
+
+\subsection{Ledoit-Wolf Gaussian Model}
+The training features are modelled as a multivariable Gaussian distribution $\mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\Sigma})$, where $\boldsymbol{\mu}$ is the mean feature vector of the training samples and $\boldsymbol{\Sigma}$ is the covariance matrix describing how
+much the features vary and correlate with one another. The covariance matrix acts as a multivariable standard deviation.
+
+Reliably estimating $\boldsymbol{\Sigma}$ requires many multiples more samples than there are dimensions. With a 512-dimension feature vector coming from ResNet, and a limited training dataset, the covariance matrix $\Sigma$ becomes ``ill-conditioned'', where its inverse becomes numerically unstable and fluctuates wildly with small changes to $\Sigma$. The inverse of $\Sigma$ is required for calculating the Mahalanobis distance, which is how the whole system compares input samples to the distribution. A system needs to be implemented to resolve the numerical instability without increasing the size of the training dataset by several orders of magnitude.
+
+Ledoit--Wolf shrinkage~\cite{ledoit2004well} addresses this by blending $\mathbf{S}$, the ill-conditioned covariance matrix, with a scaled identity matrix:
+\begin{equation}
+    \hat{\boldsymbol{\Sigma}} = (1-\alpha)\mathbf{S} +
+    \alpha\,\frac{\operatorname{tr}(\mathbf{S})}{d}\,\mathbf{I}
+\end{equation}
+Here $\mathbf{S}$ is the raw covariance matrix, $d$ is the feature dimensionality, $\mathbf{I}$ is the identity matrix, and $\frac{\operatorname{tr}(\mathbf{S})}{d}$ scales the identity to match the average variance of the data. $\operatorname{tr}$ is the ``trace'' of the matrix, which is the sum of values along its diagonal. The blend weight $\alpha\in[0,1]$ controls how much the estimate is pulled toward this simpler, stable structure: $\alpha=0$ gives the raw sample covariance while $\alpha=1$ ignores the data entirely. 
+
+The resulting ``shrunken'' covariance matrix $\hat{\Sigma}$ isn't necessarily correct but \emph{is} stable, in exchange for being slightly biased towards the identity matrix, which is acceptable because the entries which are not along the diagonal of the covariance matrix are typically the ones which are least reliable.
+
+The Ledoit--Wolf method computes the optimal $\alpha$ analytically. Their paper shows that even though the true covariance is unknown, the error between $\hat{\Sigma}$ and the true covariance matrix can still be estimated analytically, and the optimal value of $\alpha$ can be calculated from these values only. This eliminates the need for cross-validation as is typically seen in neural network training, which would require a ridiculous number of validations due to the number of dimensions and the comparatively small size of the dataset, increasing training time by several orders of magnitude. This is the same regularisation strategy used in PaDiM~\cite{defard2021padim} and related embedding-based methods of anomaly detection, specifically to avoid that issue.
+
+\subsection{Mahalanobis Distance Scoring}
+At inference, each cropped and preprocessed image is scored by its Mahalanobis distance to the training data distribution:
+\begin{equation}
+    d(\mathbf{x}) = \sqrt{(\mathbf{x}-\boldsymbol{\mu})^\top \cdot
+    \hat{\boldsymbol{\Sigma}}^{-1}(\mathbf{x}-\boldsymbol{\mu})}
+\end{equation}
+where $\mathbf{x}$ is the feature vector of the image being tested,
+$\boldsymbol{\mu}$ is the mean feature vector of the known-good training
+samples, and $\hat{\boldsymbol{\Sigma}}^{-1}$ is the inverse of the
+regularised covariance matrix.
+
+Mahalanobis distance is scale and correlation invariant. When the distribution being measured against is Gaussian, the Mahalanobis distance has a chi-squared distribution. This means interpretable percentile-based thresholds can be defined (e.g. $p_{90}$, $p_{95}$, $p_{99}$) which correspond to the probability that a good sample would have a distance greater than the Nth percentile of the training dataset. The approach is very much classical, dating back to 1936~\cite{mahalanobis1936generalised}, but it has proven more than suitable for dealing with single-class inspection problems like anomaly detection when dealing with large feature vectors from deep neural networks~\cite{lee2018simple,roth2022towards}.
 
 \section{Methodology}
 \subsection{Dataset Processing}
