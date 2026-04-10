@@ -89,35 +89,35 @@ deployment where memory and GPU power are high for an embedded system, but not h
 \section{Conclusion}
 
 \section{Individual Contributions}
+The report was written in equal proportions by both authors.
+The breakdown of Python code written by each author is as follows:
 \begin{table}[h]
 \centering
-\caption{Major system responsibilities and estimated code authorship.}
 \label{tab:contrib}
 \small
-\begin{tabular}{p{4.5cm}p{3cm}c}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{>{\raggedright\arraybackslash}p{4cm}>{\raggedright\arraybackslash}p{1.5cm}}
 \hline
-\textbf{System / Module} & \textbf{Author(s)} & \textbf{\% Code} \\
+\textbf{System / Module} & \textbf{Author(s)} \\
 \hline
 Cap localisation pipeline
 (\texttt{cap\_detection.py}, \texttt{preprocess.py})
-& [Name] & [X\%] \\
+& Yaser \\
 Feature extraction \& calibration
 (\texttt{features.py}, \texttt{build\_distribution.py})
-& [Name] & [X\%] \\
+& Yaser \\
 Statistical model: Ledoit--Wolf + Mahalanobis
 (\texttt{distribution.py})
-& [Name] & [X\%] \\
+& Seán \\
 PCA module (\texttt{pca.py})
-& [Name] & [X\%] \\
+& Seán \\
 Real-time video inference
 (\texttt{video\_inference.py})
-& [Name] & [X\%] \\
+& Both \\
 Static inference CLI (\texttt{inference.py})
-& [Name] & [X\%] \\
+& Seán \\
 Data augmentation (\texttt{augment.py})
-& [Name] & [X\%] \\
-Testing suite (\texttt{tests/})
-& [Name] & [X\%] \\
+& Yaser \\
 \hline
 \end{tabular}
 \end{table}
