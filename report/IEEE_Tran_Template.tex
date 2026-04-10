@@ -119,6 +119,55 @@ Mahalanobis distance is scale and correlation invariant. When the distribution b
 \subsection{Dataset Processing}
 
 \section{Testing and Results}
+\subsection{Training and Calibration Performance}
+
+\begin{table}[h]
+\centering
+\caption{Validation dataset performance}
+\label{tab:val}
+\small
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{lc}
+\hline
+\textbf{Metric} & \textbf{Value} \\
+\hline
+Validation good samples                & 395 \\
+Validation anomalous samples           & 10 \\
+Anomaly detection recall ($p_{99}$)    & 100\% (10/10) \\
+False-positive rate ($p_{99}$)         & 3.5\% (14/395) \\
+AUROC                                  & 0.993 \\
+Ledoit--Wolf shrinkage $\alpha$        & 0.0081 \\
+PCA components retained                & 181 of 512 (95\% variance) \\
+\hline
+\end{tabular}
+\end{table}
+
+The training dataset Mahalanobis distances have a mean of 12.69 and a standard deviation of 1.71 (range of 8.50--22.42), with thresholds of  $p_{90} = 14.96$, $p_{95} = 15.80$, $p_{99} = 17.60$. The Ledoit--Wolf shrinkage coefficient $\alpha=0.0081$ is very small, indicating that after PCA reduction ($512\rightarrow181$ dimensions, $n=1025$) the sample covariance is already well-conditioned and requires only minimal regularisation. This indicates that PCA was effective in helping stabilise the covariance matrix by reducing the number of dimensions present, and it also indicates that the number of dataset augmentations applied to the base dataset was appropriate, generating sufficient samples to prevent an ill-conditioned covariance matrix.
+
+\subsection{Embedded Performance}
+
+\begin{table}[h]
+\centering
+\caption{Inference performance on NVIDIA Jetson Nano.}
+\label{tab:embedded}
+\renewcommand{\arraystretch}{1.5}
+\small
+\begin{tabular}{lc}
+\hline
+\textbf{Metric} & \textbf{Value} \\
+\hline
+Inference throughput (video pipeline)  & $\approx$20-25 FPS   \\
+Feature extraction latency (per frame) & $\approx$35\,ms      \\
+Cap detection latency (per frame)      & $\approx$15\,ms      \\
+Overall inference latency              & $\approx$50\,ms      \\
+Calibration model size                 & $\approx$ 1\,MB       \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Requirements Assessment}
+
+The system meets the primary embedded requirements: inference operates on a frozen model and precomputed distribution, requiring no on-device training. Training can be conducted on the embedded device if needed, utilising the Jetson Nano GPU. The real-time video inference pipeline runs at $\geq$20\,FPS on the Jetson Nano hardware, utilising the GPU for ResNet-18 inference and running at an appropriate frame rate for use on a bottling line (max throughput 5 bottles/min). The percentile-based thresholding mechanism allows the sensitivity to be adjusted without retraining which is appropriate for a system of this type. Additionally, the power budget is more than respected, maxing out at 10w under normal operating conditions. Finally, the system has perfect recall. While the False Positive Rate is higher than desired, the rate is still low enough that it can be handled by the machine operator.
 
 \section{Conclusion}
 This project demonstrates that a frozen pre-trained CNN model, combined with an appropriate one-class statistical model (e.g Mahalanobis scoring, and Ledoit-Wolf covariance regularisation), results in a practical and production-deployable anomaly detection system, in this case for industrial date stamp inspection. The approach requires only ``normal'' samples for training, and is tolerant of small datasets through both covariance regularisation and dataset augmentation. The system achieves real-time inference within the power
@@ -200,11 +249,6 @@ K.~Lee, K.~Lee, H.~Lee, and J.~Shin,
 ``A Simple Unified Framework for Detecting Out-of-Distribution Samples and
 Adversarial Attacks,''
 in \textit{Proc. NeurIPS}, pp.~7167--7177, 2018.
-
-\bibitem{ballard1981hough}
-D.~H.~Ballard,
-``Generalizing the Hough Transform to Detect Arbitrary Shapes,''
-\textit{Pattern Recognition}, vol.~13, no.~2, pp.~111--122, 1981.
 
 \end{thebibliography}
 
