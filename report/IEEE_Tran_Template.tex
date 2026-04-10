@@ -25,7 +25,7 @@
 
 \begin{document}
 
-\title{Real-time Anomaly Detection for Bottle Cap Expiry Dates}
+\title{Real-time Anomaly Detection for Expiry Dates}
 
 \author{
    	\IEEEauthorblockN{Yaser Babukhan}
@@ -56,6 +56,19 @@ Lorem, Ipsum
 \end{IEEEkeywords}
 
 \section{Introduction}
+
+Automated quality control on production lines demands inspection systems that are fast, consistent, and cost-effective.
+This project addresses the detection of defective date stamps on milk bottle caps, a task where defects (smeared ink, missing digits, print head misalignment, etc.) are rare, often visually subtle, and difficult to gather a large dataset of obvious failures.
+
+This project proposes a system for single-class anomaly detection. Rather than training a binary classifier that requires a balanced dataset of correct and incorrect sample images, the model learns a statistical description of acceptable date stamps only. Any cap whose date stamp features deviate from this learned distribution is then flagged as anomalous. This is well-suited to real-world manufacturing, where defect samples are often scarce and defect modes may not even be known in advance.
+
+The pipeline combines a frozen, pre-trained convolutional image recognition network
+(ResNet-18~\cite{he2016resnet}) which converts images into numerical feature vectors, with a multivariable Gaussian distribution which models acceptable bottle caps. The model flags anomalies using Mahalanobis distance scoring to compare how far a given sample sits from the distribution against a threshold derived from the distribution. Both inference and distribution training run in real-time on an NVIDIA Jetson Nano, low-power system-on-module development board which is representative of hardware available for industrial embedded machine vision. The key design goals were:
+\begin{itemize}
+\item High anomaly recall with low false-alarm rate
+\item Real-time throughput (i.e. $\geq$30\,FPS)
+\item Low-power system theoretically suited to production deployment (i.e. 5-10w power budget)
+\end{itemize}
 
 \section{Background Research}
 
