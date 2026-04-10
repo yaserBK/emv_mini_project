@@ -72,8 +72,13 @@ The pipeline combines a frozen, pre-trained convolutional image recognition netw
 \end{itemize}
 
 \section{Background Research}
+\subsection{Dataset}
+As existing datasets did not provide adequate coverage of the font, font size, and date stamp shape of the particular production line targetted by this project, a custom dataset was built by capturing images of bottle caps coming from the production line and preprocessing to give consistent size, crop, and orientation to the images in the dataset. The images were then sent through an image processing pipeline which isolates the bottle cap from the image, at which point the images were passed to the distribution training script. The dataset consists of 1,025 augmented 256x256 crops of known good bottle caps, derived from the preprocessed images and expanded with photometric and geometric augmentations (gamma, saturation, brightness, and Gaussian noise).
+
+Validation uses 395 known good and 57 intentionally defective crops. Because one-class learning only requires normal examples during training, collecting labelled anomalies is needed only for validation, which reduced the data acquisition burden significantly, which is a common motivation for anomaly-detection approaches in modern industrial inspection~\cite{bergmann2019mvtec}.
 
 \section{Methodology}
+\subsection{Dataset Processing}
 
 \section{Testing and Results}
 
