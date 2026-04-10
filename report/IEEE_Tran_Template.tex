@@ -77,6 +77,10 @@ As existing datasets did not provide adequate coverage of the font, font size, a
 
 Validation uses 395 known good and 57 intentionally defective crops. Because one-class learning only requires normal examples during training, collecting labelled anomalies is needed only for validation, which reduced the data acquisition burden significantly, which is a common motivation for anomaly-detection approaches in modern industrial inspection~\cite{bergmann2019mvtec}.
 
+\subsection{Feature Extraction}
+Collecting sufficient data to train a deep network from scratch is impractical for this purpose as previously outlined. Transfer learning from the ImageNet-pretrained~\cite{imagenet} ResNet-18 model covers a sufficient amount of visual features without domain-specific supervised training. The final fully-connected layer (the head) is removed from the model, exposing the penultimate layer (a global average pooling layer) output: A 512-dimension feature vector describing the input image. The model backbone is frozen throughout, so no GPU memory is consumed by gradients and inference is very lightweight as the model does not back propagate. This is important for Jetson
+deployment where memory and GPU power are high for an embedded system, but not high enough to support back propagation and real-time inference at the same time. ResNet-18 has been shown to produce strong one-class baselines in prior work~\cite{roth2022towards,defard2021padim}, and also has seen extensive use on the Jetson Nano in open-source projects, so it was an obvious choice for this project. Producing 512 features for each image, it provides an extremely detailed description of each image, which can then be used to build an accurate distribution of known good bottle cap prints.
+
 \section{Methodology}
 \subsection{Dataset Processing}
 
@@ -85,6 +89,38 @@ Validation uses 395 known good and 57 intentionally defective crops. Because one
 \section{Conclusion}
 
 \section{Individual Contributions}
+\begin{table}[h]
+\centering
+\caption{Major system responsibilities and estimated code authorship.}
+\label{tab:contrib}
+\small
+\begin{tabular}{p{4.5cm}p{3cm}c}
+\hline
+\textbf{System / Module} & \textbf{Author(s)} & \textbf{\% Code} \\
+\hline
+Cap localisation pipeline
+(\texttt{cap\_detection.py}, \texttt{preprocess.py})
+& [Name] & [X\%] \\
+Feature extraction \& calibration
+(\texttt{features.py}, \texttt{build\_distribution.py})
+& [Name] & [X\%] \\
+Statistical model: Ledoit--Wolf + Mahalanobis
+(\texttt{distribution.py})
+& [Name] & [X\%] \\
+PCA module (\texttt{pca.py})
+& [Name] & [X\%] \\
+Real-time video inference
+(\texttt{video\_inference.py})
+& [Name] & [X\%] \\
+Static inference CLI (\texttt{inference.py})
+& [Name] & [X\%] \\
+Data augmentation (\texttt{augment.py})
+& [Name] & [X\%] \\
+Testing suite (\texttt{tests/})
+& [Name] & [X\%] \\
+\hline
+\end{tabular}
+\end{table}
 
 %\bibliographystyle{IEEEtran}
 %\bibliography{references}
